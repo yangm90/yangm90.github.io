@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <!--
+    * Author:        ym 
+    -->
+    <meta charset="utf-8" />
+    <title>git和SVN配合 | Yangming.com</title>
+    <meta name="author" content="ym" />
+    <meta name="renderer" content="webkit">
+    <meta name="description" content="ym's Blog" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0">
+    <link rel="stylesheet" href="/css/default.css" type="text/css" />
+    <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon" />
+    <link rel="alternate" type="application/atom+xml" title="Recent Entries" href="/atom.xml" />
+    <script src="/js/jquery-1.7.1.min.js" type="text/javascript"></script>
+</head>
+<body>
+
+    <div class="home-menu">
+        <div class="home-icon-con">
+            <a class="home-menu-icon" href="/">YangMing</a>
+            <a class="home-follow" href="#" title="Contact Me">+</a>
+        </div>
+		<!--
+        <div class="home-contact">
+            <a href="http://weibo.com/beiyuu/" target="_blank" style="margin-left:-5px;"><img src="http://www.weibo.com/favicon.ico" alt="" width="25"/></a>
+            <a href="http://www.douban.com/people/beiyuu/" target="_blank" style="text-align:center;"><img src="http://www.douban.com/favicon.ico" alt="" width="22"/></a>
+            <a href="http://instagram.com/beiyuu/" target="_blank" style="text-align:right"><img src="http://d36xtkk24g8jdx.cloudfront.net/bluebar/00c6602/images/ico/favicon.ico" alt="" width="22"/></a>
+        </div>
+		-->
+    </div>
+
+    <link rel="stylesheet" href="/js/prettify/prettify.css" />
+<style type="text/css">
+    body { background:#e8e8e8; }
+    @media screen and (max-width: 750px){
+        body { background:#fff; }
+    }
+    @media screen and (max-width: 1020px){
+        body { background:#fff; }
+    }
+</style>
+
+<div id="content">
+    <div class="entry">
+        <h1 class="entry-title"><a href="/git-svn" title="git和SVN配合">git和SVN配合</a></h1>
+        <p class="entry-date">2014-11-16</p>
+        <h3>使用Git有什么方便的？</h3>
+
+<ul>
+<li>把大修改点拆小提交记录。</li>
+<li>随时更新服务器代码到本地，不影响当前工作环境。</li>
+<li>连不上服务器时，也能正常工作。</li>
+<li>数据分布式存放，数据丢失的可能性最小。</li>
+</ul>
+
+
+<h3>推荐读物 Pro Git</h3>
+
+<h3>常用命令</h3>
+
+<table class="wiki">
+<tr><td><strong>命令</strong></td><td><strong>说明</strong>
+</td></tr><tr><td>git svn clone -s http://svn.repo.url</td><td>从远程SVN服务器下拉所有代码变化到本地(SVN目录必须符合标准，有trunk, tags, branches，否则把-s选项去掉)
+</td></tr><tr><td>git svn fetch</td><td>从远程SVN服务器下拉代码变化到本地Git服务端
+</td></tr><tr><td>git svn dcommit</td><td>把本地Git服务端的代码变化，同步提交到远程SVN服务器
+</td></tr><tr><td>git branch</td><td>查看本地分支列表
+</td></tr><tr><td>git branch -a</td><td>查看所有分支列表
+</td></tr><tr><td>git branch -d branchName</td><td>删除本地分支
+</td></tr><tr><td>git branch -D branchName</td><td>强制删除本地分支
+</td></tr><tr><td>git checkout -b locBranchName remotes/branchName</td><td>从远程(其实就是本机的git服务端)分支创建一个本地分支，并将工作目录切换到这个本地分支
+</td></tr><tr><td>git checkout locBranchName</td><td>把工作目录切换到一个已存在的本地分支
+</td></tr><tr><td>git checkout *</td><td>把工作目录内没有提交的所有修改恢复原样，相当于svn的revert操作
+</td></tr><tr><td>git clean -n</td><td>查看有什么多余的文件可以清理的
+</td></tr><tr><td>git clean -f</td><td>清理多余的文件
+</td></tr><tr><td>git gui</td><td>git提供的一个图形界面工具，常用来提交代码
+</td></tr><tr><td>gitk</td><td>git的一个图形界面工具，常用来查看日志及变化
+</td></tr><tr><td>git rebase remotes/branchName</td><td>把远程(其实就是本机的git服务端)分支的最新变更合并到本地分支
+</td></tr><tr><td>git cherry-pick {SHA1-ID}</td><td>把指定SHA1 ID的修改点合并到当前本地分支
+</td></tr><tr><td>git diff</td><td>查看变化
+</td></tr><tr><td>git difftool -t meld -y</td><td>用meld查看变化
+</td></tr><tr><td>git mergetool -t meld -y</td><td>用meld合并解决冲突代码
+</td></tr></table>
+
+
+
+
+
+        <div id="disqus_container">
+            <div style="margin-bottom:20px" class="right">
+                <script type="text/javascript" charset="utf-8">
+                (function(){
+                  var _w = 86 , _h = 16;
+                  var param = {
+                    url:location.href,
+                    type:'6',
+                    count:'', /**是否显示分享数，1显示(可选)*/
+                    appkey:'', /**您申请的应用appkey,显示分享来源(可选)*/
+                    title:'', /**分享的文字内容(可选，默认为所在页面的title)*/
+                    pic:'', /**分享图片的路径(可选)*/
+                    ralateUid:'1855270953', /**关联用户的UID，分享微博会@该用户(可选)*/
+                    language:'zh_cn', /**设置语言，zh_cn|zh_tw(可选)*/
+                    rnd:new Date().valueOf()
+                  }
+                  var temp = [];
+                  for( var p in param ){
+                    temp.push(p + '=' + encodeURIComponent( param[p] || '' ) )
+                  }
+                  document.write('<iframe allowTransparency="true" frameborder="0" scrolling="no" src="http://hits.sinajs.cn/A1/weiboshare.html?' + temp.join('&') + '" width="'+ _w+'" height="'+_h+'"></iframe>')
+                })()
+                </script>
+            </div>
+            <a href="#" class="comment" onclick="return false;">点击查看评论</a>
+            <div id="disqus_thread"></div>
+        </div>
+    </div>
+
+    <div class="sidenav">
+        <iframe width="100%" height="75" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=75&fansRow=2&ptype=1&speed=0&skin=5&isTitle=0&noborder=0&isWeibo=0&isFans=0&uid=1855270953&verifier=375b89d6&dpc=1"></iframe>
+    </div>
+
+    <div class="sidenav">
+        <h2>Blog</h2>
+        <ul class="artical-list">
+        
+            <li><a href="/view">android的View绘制</a></li>
+        
+            <li><a href="/ndk">android的NDK调试常见问题</a></li>
+        
+            <li><a href="/git-svn">git和SVN配合</a></li>
+        
+            <li><a href="/sqlite-efficiency">关于java String的匹配问题</a></li>
+        
+            <li><a href="/java-String">关于java String的匹配问题</a></li>
+        
+            <li><a href="/andoird-ant">ant打包策略</a></li>
+        
+            <li><a href="/android-diandi">android的ListView常见问题</a></li>
+        
+            <li><a href="/android_L">androidL预言</a></li>
+        
+            <li><a href="/android-lint">android辅助工具</a></li>
+        
+            <li><a href="/first-commit">github 和jekyll方法</a></li>
+        
+            <li><a href="/vps-config-python-vitrualenv-flask-gunicorn-supervisor-nginx">VPS环境搭建详解 (Virtualenv+Gunicorn+Supervisor+Nginx)</a></li>
+        
+            <li><a href="/css3-animation">CSS3动画详解</a></li>
+        
+        </ul>
+
+        <h2>Opinion</h2>
+        <ul class="artical-list">
+        
+            <li><a href="/douban-fm">豆瓣FM(iOS 3.0)使用体会</a></li>
+        
+            <li><a href="/jobs-interview">史蒂夫·乔布斯：遗失的访谈</a></li>
+        
+            <li><a href="/40-ama-55-grammy">40届全美音乐奖和55届格莱美颁奖演出观感</a></li>
+        
+            <li><a href="/build-facebook">只有好的棋手才会走运</a></li>
+        
+            <li><a href="/bad-list-design">令人焦虑的列表设计</a></li>
+        
+            <li><a href="/about-simplify">胡言乱语说简单</a></li>
+        
+            <li><a href="/auto-edit-bar">随内容滚动隐藏的工具栏</a></li>
+        
+            <li><a href="/side-slide">如果侧滑成为APP标配</a></li>
+        
+            <li><a href="/needs-video">谈谈刚需和360影视</a></li>
+        
+        </ul>
+
+        <h2>Project</h2>
+        <ul class="artical-list">
+        
+            <li><a href="/tabby">Tabby</a></li>
+        
+            <li><a href="/notty-notes">Notty Notes</a></li>
+        
+            <li><a href="/overapi-cheatsheet">OverAPI</a></li>
+        
+            <li><a href="/raining-in-chrome">听雨</a></li>
+        
+        </ul>
+    </div>
+</div>
+
+<script src="/js/post.js" type="text/javascript"></script>
+
+
+    <!--*********************************************************-->
+    <!--****** 宝贝儿，看见这个时候，删掉下面的统计代码哦~ ******-->
+    <!--************* 再推荐下我的第一篇博客哦~~ ****************-->
+    <!--*********************************************************-->
+
+    <div class="hide">
+        <script type="text/javascript" src="http://js.tongji.linezing.com/2727758/tongji.js"></script>
+        <noscript><a href="http://www.linezing.com"><img src="http://img.tongji.linezing.com/2727758/tongji.gif"/></a></noscript>
+    </div>
+    <script type="text/javascript">
+        $(function(){
+            $('.home-follow').click(function(e){
+                e.preventDefault();
+
+                if($('.home-contact').is(':visible')){
+                    $('.home-contact').slideUp(100);
+                }else{
+                    $('.home-contact').slideDown(100);
+                }
+            });
+        })
+    </script>
+</body>
+</html>

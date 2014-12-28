@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <!--
+    * Author:        ym 
+    -->
+    <meta charset="utf-8" />
+    <title>关于java String的匹配问题 | Yangming.com</title>
+    <meta name="author" content="ym" />
+    <meta name="renderer" content="webkit">
+    <meta name="description" content="ym's Blog" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0">
+    <link rel="stylesheet" href="/css/default.css" type="text/css" />
+    <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon" />
+    <link rel="alternate" type="application/atom+xml" title="Recent Entries" href="/atom.xml" />
+    <script src="/js/jquery-1.7.1.min.js" type="text/javascript"></script>
+</head>
+<body>
+
+    <div class="home-menu">
+        <div class="home-icon-con">
+            <a class="home-menu-icon" href="/">YangMing</a>
+            <a class="home-follow" href="#" title="Contact Me">+</a>
+        </div>
+		<!--
+        <div class="home-contact">
+            <a href="http://weibo.com/beiyuu/" target="_blank" style="margin-left:-5px;"><img src="http://www.weibo.com/favicon.ico" alt="" width="25"/></a>
+            <a href="http://www.douban.com/people/beiyuu/" target="_blank" style="text-align:center;"><img src="http://www.douban.com/favicon.ico" alt="" width="22"/></a>
+            <a href="http://instagram.com/beiyuu/" target="_blank" style="text-align:right"><img src="http://d36xtkk24g8jdx.cloudfront.net/bluebar/00c6602/images/ico/favicon.ico" alt="" width="22"/></a>
+        </div>
+		-->
+    </div>
+
+    <link rel="stylesheet" href="/js/prettify/prettify.css" />
+<style type="text/css">
+    body { background:#e8e8e8; }
+    @media screen and (max-width: 750px){
+        body { background:#fff; }
+    }
+    @media screen and (max-width: 1020px){
+        body { background:#fff; }
+    }
+</style>
+
+<div id="content">
+    <div class="entry">
+        <h1 class="entry-title"><a href="/sqlite-efficiency" title="关于java String的匹配问题">关于java String的匹配问题</a></h1>
+        <p class="entry-date">2014-11-15</p>
+        <h3>遇到的问题</h3>
+
+<p>这次在调程序性能的时候发现有多处的String匹配，加上各种云端开关，想到之前字符串匹配用到的KMP算法，所以打算采用KMP算法：</p>
+
+<div class="highlight"><pre><code class="language-java" data-lang="java">public class KMP {
+    public int kmpMatch(String s, String p){
+        int[] next = new int[s.length()];
+        int i,j;
+        i=0;
+        j=0;
+        getNext(p,next);
+        while(i&lt;s.length()){
+            if(j==-1||s.charAt(i)==p.charAt(j)){
+                i++;
+                j++;
+            }else{
+                j=next[j]; // eliminate Trace Back
+            }
+            if(j==p.length()){
+                return i-p.length();
+            }
+        }
+        return -1;
+    }
+
+    private void getNext(String p, int[] next){
+        int j,k;
+        next[0]=-1;
+        j=0;
+        k=-1;
+        while(j&lt;p.length()-1){
+            if(k==-1 || p.charAt(j)==p.charAt(k)){
+                j++;
+                k++;
+                next[j]=k;
+            }else{
+                k=next[k];
+            }
+        }
+    }
+}</code></pre></div>
+
+
+<p>但是发现，性能竟然降下去了。</p>
+
+<h3>关于java的字符串匹配的问题</h3>
+
+<pre><code>我们之前的代码采用的jdk的**contains api**
+源码如下：
+![Alt text]( /images/android/2014_java_indexof.png "Optional title")
+
+发现牛逼的jre源码竟然采用了最朴实的算法,我们知道KMP的时间复杂度是非常好的为o(n)
+</code></pre>
+
+<p>为何源码采用朴素算法,不采用KMP？在stackOverFlow上找到了一些蛛丝马迹:
+    KMP算法具有更好的性能，但实际上需要一点点的前面计算（产生的偏移量表）。IT也需要一个初始的内存分配，这也可能影响性能。
+    而且使用String的<strong>charAt </strong>会对性能的造成损耗，这个需要注意！！！</p>
+
+<p>此外，测试了了String的几个查找subString的API：</p>
+
+<ol>
+<li>string.contains()</li>
+<li>string.indexOf()</li>
+<li>regular expression. it is something like string.matches("ja"))</li>
+</ol>
+
+
+<p>性能 string.indexOf() > string.contains() > string.matches("ja"))</p>
+
+
+        <div id="disqus_container">
+            <div style="margin-bottom:20px" class="right">
+                <script type="text/javascript" charset="utf-8">
+                (function(){
+                  var _w = 86 , _h = 16;
+                  var param = {
+                    url:location.href,
+                    type:'6',
+                    count:'', /**是否显示分享数，1显示(可选)*/
+                    appkey:'', /**您申请的应用appkey,显示分享来源(可选)*/
+                    title:'', /**分享的文字内容(可选，默认为所在页面的title)*/
+                    pic:'', /**分享图片的路径(可选)*/
+                    ralateUid:'1855270953', /**关联用户的UID，分享微博会@该用户(可选)*/
+                    language:'zh_cn', /**设置语言，zh_cn|zh_tw(可选)*/
+                    rnd:new Date().valueOf()
+                  }
+                  var temp = [];
+                  for( var p in param ){
+                    temp.push(p + '=' + encodeURIComponent( param[p] || '' ) )
+                  }
+                  document.write('<iframe allowTransparency="true" frameborder="0" scrolling="no" src="http://hits.sinajs.cn/A1/weiboshare.html?' + temp.join('&') + '" width="'+ _w+'" height="'+_h+'"></iframe>')
+                })()
+                </script>
+            </div>
+            <a href="#" class="comment" onclick="return false;">点击查看评论</a>
+            <div id="disqus_thread"></div>
+        </div>
+    </div>
+
+    <div class="sidenav">
+        <iframe width="100%" height="75" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=75&fansRow=2&ptype=1&speed=0&skin=5&isTitle=0&noborder=0&isWeibo=0&isFans=0&uid=1855270953&verifier=375b89d6&dpc=1"></iframe>
+    </div>
+
+    <div class="sidenav">
+        <h2>Blog</h2>
+        <ul class="artical-list">
+        
+            <li><a href="/view">android的View绘制</a></li>
+        
+            <li><a href="/ndk">android的NDK调试常见问题</a></li>
+        
+            <li><a href="/git-svn">git和SVN配合</a></li>
+        
+            <li><a href="/sqlite-efficiency">关于java String的匹配问题</a></li>
+        
+            <li><a href="/java-String">关于java String的匹配问题</a></li>
+        
+            <li><a href="/andoird-ant">ant打包策略</a></li>
+        
+            <li><a href="/android-diandi">android的ListView常见问题</a></li>
+        
+            <li><a href="/android_L">androidL预言</a></li>
+        
+            <li><a href="/android-lint">android辅助工具</a></li>
+        
+            <li><a href="/first-commit">github 和jekyll方法</a></li>
+        
+            <li><a href="/vps-config-python-vitrualenv-flask-gunicorn-supervisor-nginx">VPS环境搭建详解 (Virtualenv+Gunicorn+Supervisor+Nginx)</a></li>
+        
+            <li><a href="/css3-animation">CSS3动画详解</a></li>
+        
+        </ul>
+
+        <h2>Opinion</h2>
+        <ul class="artical-list">
+        
+            <li><a href="/douban-fm">豆瓣FM(iOS 3.0)使用体会</a></li>
+        
+            <li><a href="/jobs-interview">史蒂夫·乔布斯：遗失的访谈</a></li>
+        
+            <li><a href="/40-ama-55-grammy">40届全美音乐奖和55届格莱美颁奖演出观感</a></li>
+        
+            <li><a href="/build-facebook">只有好的棋手才会走运</a></li>
+        
+            <li><a href="/bad-list-design">令人焦虑的列表设计</a></li>
+        
+            <li><a href="/about-simplify">胡言乱语说简单</a></li>
+        
+            <li><a href="/auto-edit-bar">随内容滚动隐藏的工具栏</a></li>
+        
+            <li><a href="/side-slide">如果侧滑成为APP标配</a></li>
+        
+            <li><a href="/needs-video">谈谈刚需和360影视</a></li>
+        
+        </ul>
+
+        <h2>Project</h2>
+        <ul class="artical-list">
+        
+            <li><a href="/tabby">Tabby</a></li>
+        
+            <li><a href="/notty-notes">Notty Notes</a></li>
+        
+            <li><a href="/overapi-cheatsheet">OverAPI</a></li>
+        
+            <li><a href="/raining-in-chrome">听雨</a></li>
+        
+        </ul>
+    </div>
+</div>
+
+<script src="/js/post.js" type="text/javascript"></script>
+
+
+    <!--*********************************************************-->
+    <!--****** 宝贝儿，看见这个时候，删掉下面的统计代码哦~ ******-->
+    <!--************* 再推荐下我的第一篇博客哦~~ ****************-->
+    <!--*********************************************************-->
+
+    <div class="hide">
+        <script type="text/javascript" src="http://js.tongji.linezing.com/2727758/tongji.js"></script>
+        <noscript><a href="http://www.linezing.com"><img src="http://img.tongji.linezing.com/2727758/tongji.gif"/></a></noscript>
+    </div>
+    <script type="text/javascript">
+        $(function(){
+            $('.home-follow').click(function(e){
+                e.preventDefault();
+
+                if($('.home-contact').is(':visible')){
+                    $('.home-contact').slideUp(100);
+                }else{
+                    $('.home-contact').slideDown(100);
+                }
+            });
+        })
+    </script>
+</body>
+</html>

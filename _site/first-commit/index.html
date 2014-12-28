@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <!--
+    * Author:        ym 
+    -->
+    <meta charset="utf-8" />
+    <title>github 和jekyll方法 | Yangming.com</title>
+    <meta name="author" content="ym" />
+    <meta name="renderer" content="webkit">
+    <meta name="description" content="ym's Blog" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0">
+    <link rel="stylesheet" href="/css/default.css" type="text/css" />
+    <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon" />
+    <link rel="alternate" type="application/atom+xml" title="Recent Entries" href="/atom.xml" />
+    <script src="/js/jquery-1.7.1.min.js" type="text/javascript"></script>
+</head>
+<body>
+
+    <div class="home-menu">
+        <div class="home-icon-con">
+            <a class="home-menu-icon" href="/">YangMing</a>
+            <a class="home-follow" href="#" title="Contact Me">+</a>
+        </div>
+		<!--
+        <div class="home-contact">
+            <a href="http://weibo.com/beiyuu/" target="_blank" style="margin-left:-5px;"><img src="http://www.weibo.com/favicon.ico" alt="" width="25"/></a>
+            <a href="http://www.douban.com/people/beiyuu/" target="_blank" style="text-align:center;"><img src="http://www.douban.com/favicon.ico" alt="" width="22"/></a>
+            <a href="http://instagram.com/beiyuu/" target="_blank" style="text-align:right"><img src="http://d36xtkk24g8jdx.cloudfront.net/bluebar/00c6602/images/ico/favicon.ico" alt="" width="22"/></a>
+        </div>
+		-->
+    </div>
+
+    <link rel="stylesheet" href="/js/prettify/prettify.css" />
+<style type="text/css">
+    body { background:#e8e8e8; }
+    @media screen and (max-width: 750px){
+        body { background:#fff; }
+    }
+    @media screen and (max-width: 1020px){
+        body { background:#fff; }
+    }
+</style>
+
+<div id="content">
+    <div class="entry">
+        <h1 class="entry-title"><a href="/first-commit" title="github 和jekyll方法">github 和jekyll方法</a></h1>
+        <p class="entry-date">2014-09-21</p>
+        <h3>github常用命令</h3>
+
+<ul>
+    <li>git clone git@github.com:username/xxxxxx.github.com.git//本地如果无远程代码，先做这步，不然就忽略</li>
+    <li>git pull origin master //先同步远程文件，后面的参数会自动连接你远程的文件/li>
+    <li>git status //查看本地自己修改了多少文件</li>
+    <li>git添加文件:git add .</li>
+    <li>git提交文件: git commit -m "first commit"</li>
+    <li>git push origin master //更新到远程服务器上</li>
+</ul>
+
+
+<h3>jekyll常用命令</h3>
+
+<ul>
+    <li>jekyll打开本地服务jekyll serve</li>
+    <li>关于jekyll的 Address already in use - bind(2):</br>
+        先采用lsof -wni tcp:4000 或者使用 ps aux |grep "jek"</br>
+        再采用kill -9 PID命令
+        </li>
+    
+</ul>
+
+
+<h3>常用adb和adb shell命令</h3>
+
+<ul>
+    <li>windows平台查看端口占用:netstat -ano | findstr "5037" </li>
+    <li>查看手机服务列表:adb shell service list</li>
+    <li>查看安装列表:adb shell pm list packages</li>
+    <li>查看安装位置:adb shell pm path pkg_name</li>
+    <li>推送信息:adb pull pkg_path</li>
+    <li></li>
+    <li></li>
+    <li></li>
+    
+</ul>
+
+
+<h3>vim常用命令</h3>
+
+<ul>
+    <li>复制单行:yy</li>
+    <li>复制单个单词:yw</li>
+    <li>粘贴单行:p</li>
+    <li>删除单行:dd </li>
+    <li>删除单个单词:diw</li>
+</ul>
+
+
+<h3>shell常用命令</h3>
+
+<ul>
+    <li></li>
+    <li></li>
+    <li></li>
+    <li></li>
+</ul>
+
+
+<p>linux上进程有5种状态:
+1. 运行(正在运行或在运行队列中等待)</br>
+2. 中断(休眠中, 受阻, 在等待某个条件的形成或接受到信号)</br>
+3. 不可中断(收到信号不唤醒和不可运行, 进程必须等待直到有中断发生)</br>
+4. 僵死(进程已终止, 但进程描述符存在, 直到父进程调用wait4()系统调用后释放)</br>
+5. 停止(进程收到SIGSTOP, SIGSTP, SIGTIN, SIGTOU信号后停止运行运行)</br></p>
+
+<p>1）ps a 显示现行终端机下的所有程序，包括其他用户的程序。</br>
+2）ps -A   显示所有程序。</br>
+3）ps c    列出程序时，显示每个程序真正的指令名称，而不包含路径，参数或常驻服务的标示。</br>
+4）ps -e   此参数的效果和指定"A"参数相同。</br>
+5）ps e    列出程序时，显示每个程序所使用的环境变量。</br>
+6）ps f    用ASCII字符显示树状结构，表达程序间的相互关系。</br>
+7）ps -H   显示树状结构，表示程序间的相互关系。</br>
+8）ps -N   显示所有的程序，除了执行ps指令终端机下的程序之外。</br>
+9）ps s    采用程序信号的格式显示程序状况。</br>
+10）ps S   列出程序时，包括已中断的子程序资料。</br>
+11）ps -t  &lt;终端机编号> 　指定终端机编号，并列出属于该终端机的程序的状况。</br>
+12）ps u 　以用户为主的格式来显示程序状况。</br>
+13）ps x 　显示所有程序，不以终端机来区分。</br>
+14）ps -l  較長,較詳細的顯示該PID的信息  </br></p>
+
+
+        <div id="disqus_container">
+            <div style="margin-bottom:20px" class="right">
+                <script type="text/javascript" charset="utf-8">
+                (function(){
+                  var _w = 86 , _h = 16;
+                  var param = {
+                    url:location.href,
+                    type:'6',
+                    count:'', /**是否显示分享数，1显示(可选)*/
+                    appkey:'', /**您申请的应用appkey,显示分享来源(可选)*/
+                    title:'', /**分享的文字内容(可选，默认为所在页面的title)*/
+                    pic:'', /**分享图片的路径(可选)*/
+                    ralateUid:'1855270953', /**关联用户的UID，分享微博会@该用户(可选)*/
+                    language:'zh_cn', /**设置语言，zh_cn|zh_tw(可选)*/
+                    rnd:new Date().valueOf()
+                  }
+                  var temp = [];
+                  for( var p in param ){
+                    temp.push(p + '=' + encodeURIComponent( param[p] || '' ) )
+                  }
+                  document.write('<iframe allowTransparency="true" frameborder="0" scrolling="no" src="http://hits.sinajs.cn/A1/weiboshare.html?' + temp.join('&') + '" width="'+ _w+'" height="'+_h+'"></iframe>')
+                })()
+                </script>
+            </div>
+            <a href="#" class="comment" onclick="return false;">点击查看评论</a>
+            <div id="disqus_thread"></div>
+        </div>
+    </div>
+
+    <div class="sidenav">
+        <iframe width="100%" height="75" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=75&fansRow=2&ptype=1&speed=0&skin=5&isTitle=0&noborder=0&isWeibo=0&isFans=0&uid=1855270953&verifier=375b89d6&dpc=1"></iframe>
+    </div>
+
+    <div class="sidenav">
+        <h2>Blog</h2>
+        <ul class="artical-list">
+        
+            <li><a href="/view">android的View绘制</a></li>
+        
+            <li><a href="/ndk">android的NDK调试常见问题</a></li>
+        
+            <li><a href="/git-svn">git和SVN配合</a></li>
+        
+            <li><a href="/sqlite-efficiency">关于java String的匹配问题</a></li>
+        
+            <li><a href="/java-String">关于java String的匹配问题</a></li>
+        
+            <li><a href="/andoird-ant">ant打包策略</a></li>
+        
+            <li><a href="/android-diandi">android的ListView常见问题</a></li>
+        
+            <li><a href="/android_L">androidL预言</a></li>
+        
+            <li><a href="/android-lint">android辅助工具</a></li>
+        
+            <li><a href="/first-commit">github 和jekyll方法</a></li>
+        
+            <li><a href="/vps-config-python-vitrualenv-flask-gunicorn-supervisor-nginx">VPS环境搭建详解 (Virtualenv+Gunicorn+Supervisor+Nginx)</a></li>
+        
+            <li><a href="/css3-animation">CSS3动画详解</a></li>
+        
+        </ul>
+
+        <h2>Opinion</h2>
+        <ul class="artical-list">
+        
+            <li><a href="/douban-fm">豆瓣FM(iOS 3.0)使用体会</a></li>
+        
+            <li><a href="/jobs-interview">史蒂夫·乔布斯：遗失的访谈</a></li>
+        
+            <li><a href="/40-ama-55-grammy">40届全美音乐奖和55届格莱美颁奖演出观感</a></li>
+        
+            <li><a href="/build-facebook">只有好的棋手才会走运</a></li>
+        
+            <li><a href="/bad-list-design">令人焦虑的列表设计</a></li>
+        
+            <li><a href="/about-simplify">胡言乱语说简单</a></li>
+        
+            <li><a href="/auto-edit-bar">随内容滚动隐藏的工具栏</a></li>
+        
+            <li><a href="/side-slide">如果侧滑成为APP标配</a></li>
+        
+            <li><a href="/needs-video">谈谈刚需和360影视</a></li>
+        
+        </ul>
+
+        <h2>Project</h2>
+        <ul class="artical-list">
+        
+            <li><a href="/tabby">Tabby</a></li>
+        
+            <li><a href="/notty-notes">Notty Notes</a></li>
+        
+            <li><a href="/overapi-cheatsheet">OverAPI</a></li>
+        
+            <li><a href="/raining-in-chrome">听雨</a></li>
+        
+        </ul>
+    </div>
+</div>
+
+<script src="/js/post.js" type="text/javascript"></script>
+
+
+    <!--*********************************************************-->
+    <!--****** 宝贝儿，看见这个时候，删掉下面的统计代码哦~ ******-->
+    <!--************* 再推荐下我的第一篇博客哦~~ ****************-->
+    <!--*********************************************************-->
+
+    <div class="hide">
+        <script type="text/javascript" src="http://js.tongji.linezing.com/2727758/tongji.js"></script>
+        <noscript><a href="http://www.linezing.com"><img src="http://img.tongji.linezing.com/2727758/tongji.gif"/></a></noscript>
+    </div>
+    <script type="text/javascript">
+        $(function(){
+            $('.home-follow').click(function(e){
+                e.preventDefault();
+
+                if($('.home-contact').is(':visible')){
+                    $('.home-contact').slideUp(100);
+                }else{
+                    $('.home-contact').slideDown(100);
+                }
+            });
+        })
+    </script>
+</body>
+</html>

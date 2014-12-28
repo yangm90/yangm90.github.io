@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <!--
+    * Author:        ym 
+    -->
+    <meta charset="utf-8" />
+    <title>Yangming.com</title>
+    <meta name="author" content="ym" />
+    <meta name="renderer" content="webkit">
+    <meta name="description" content="ym's Blog" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0">
+    <link rel="stylesheet" href="/css/default.css" type="text/css" />
+    <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon" />
+    <link rel="alternate" type="application/atom+xml" title="Recent Entries" href="/atom.xml" />
+    <script src="/js/jquery-1.7.1.min.js" type="text/javascript"></script>
+</head>
+<body>
+
+    <div class="home-menu">
+        <div class="home-icon-con">
+            <a class="home-menu-icon" href="/">YangMing</a>
+            <a class="home-follow" href="#" title="Contact Me">+</a>
+        </div>
+		<!--
+        <div class="home-contact">
+            <a href="http://weibo.com/beiyuu/" target="_blank" style="margin-left:-5px;"><img src="http://www.weibo.com/favicon.ico" alt="" width="25"/></a>
+            <a href="http://www.douban.com/people/beiyuu/" target="_blank" style="text-align:center;"><img src="http://www.douban.com/favicon.ico" alt="" width="22"/></a>
+            <a href="http://instagram.com/beiyuu/" target="_blank" style="text-align:right"><img src="http://d36xtkk24g8jdx.cloudfront.net/bluebar/00c6602/images/ico/favicon.ico" alt="" width="22"/></a>
+        </div>
+		-->
+    </div>
+
+    <div class="index-content blog">
+    <div class="section">
+        <ul class="artical-cate">
+            <li class="on"><a href="/"><span>Blog</span></a></li>
+            <li style="text-align:center"><a href="/opinion"><span>Opinion</span></a></li>
+            <li style="text-align:right"><a href="/project"><span>Project</span></a></li>
+        </ul>
+
+        <div class="cate-bar"><span id="cateBar"></span></div>
+
+        <ul class="artical-list">
+        
+            <li>
+                <h2><a href="/view">android的View绘制</a></h2>
+                <div class="title-desc">android的View绘制的相关问题</div>
+            </li>
+        
+            <li>
+                <h2><a href="/ndk">android的NDK调试常见问题</a></h2>
+                <div class="title-desc">android的NDK调试的相关问题</div>
+            </li>
+        
+            <li>
+                <h2><a href="/git-svn">git和SVN配合</a></h2>
+                <div class="title-desc">采用git配合svn的方式</div>
+            </li>
+        
+            <li>
+                <h2><a href="/sqlite-efficiency">关于java String的匹配问题</a></h2>
+                <div class="title-desc">关于String的一些想法</div>
+            </li>
+        
+            <li>
+                <h2><a href="/java-String">关于java String的匹配问题</a></h2>
+                <div class="title-desc">关于String的一些想法</div>
+            </li>
+        
+            <li>
+                <h2><a href="/andoird-ant">ant打包策略</a></h2>
+                <div class="title-desc">ant打包策略</div>
+            </li>
+        
+            <li>
+                <h2><a href="/android-diandi">android的ListView常见问题</a></h2>
+                <div class="title-desc">android的ListView常见问题</div>
+            </li>
+        
+            <li>
+                <h2><a href="/android_L">androidL预言</a></h2>
+                <div class="title-desc">存在感对于每个人的生活有多么的重要，可能平时并不是太关注，其实他就是生活的全部</div>
+            </li>
+        
+            <li>
+                <h2><a href="/android-lint">android辅助工具</a></h2>
+                <div class="title-desc">存在感对于每个人的生活有多么的重要，可能平时并不是太关注，其实他就是生活的全部</div>
+            </li>
+        
+            <li>
+                <h2><a href="/first-commit">github 和jekyll方法</a></h2>
+                <div class="title-desc">关于如何使用github和如何去使用jekyll的总结</div>
+            </li>
+        
+            <li>
+                <h2><a href="/vps-config-python-vitrualenv-flask-gunicorn-supervisor-nginx">VPS环境搭建详解 (Virtualenv+Gunicorn+Supervisor+Nginx)</a></h2>
+                <div class="title-desc">VPS环境搭建就是去理解各种概念的过程，这篇博客记录了在VPS上搭建Python环境的过程，其中除了Python特性的东西，基本概念是相通的。关键字：Python, Virtualenv, Flask, Gunicorn, Supervisor, Nginx</div>
+            </li>
+        
+            <li>
+                <h2><a href="/css3-animation">CSS3动画详解</a></h2>
+                <div class="title-desc">随着低版本IE份额下降，以及移动端流量的增长，在项目中也可以大胆使用CSS3动画来增强体验和提高产品的优雅程度，对那些不支持的浏览器也不用再费心去做更多兼容，所以，我们来研究下CSS3动画，到底应该怎么用。</div>
+            </li>
+        
+        </ul>
+    </div>
+    <div class="aside">
+    </div>
+</div>
+
+
+
+<script type="text/javascript">
+    $(function(){
+        function animateBar($item,noAni){
+            var spanLeft = $item.find('span').offset().left;
+            var conLeft = $item.parent().offset().left;
+            var left = spanLeft - conLeft;
+            var width = $item.find('span').width() + 8;
+
+            if(noAni){
+                $('#cateBar').css({left:left,width:width})
+            }else{
+                $('#cateBar').stop().animate({left:left,width:width},300)
+            }
+        }
+
+        var waitForFinalEvent = (function () {
+            var timers = {};
+            return function (callback, ms, uniqueId) {
+                if (!uniqueId) {
+                    uniqueId = "Don't call this twice without a uniqueId";
+                }
+                if (timers[uniqueId]) {
+                    clearTimeout (timers[uniqueId]);
+                }
+                timers[uniqueId] = setTimeout(callback, ms);
+            };
+        })();
+
+        $('.artical-cate li').mouseenter(function(){
+            animateBar($(this));
+        }).mouseleave(function(){
+            animateBar($('.artical-cate .on'));
+        });
+
+        $(window).resize(function(e){
+            waitForFinalEvent(function(){
+                animateBar($('.artical-cate .on'));
+            })
+        })
+        animateBar($('.artical-cate .on'),true);
+    });
+</script>
+
+
+    <!--*********************************************************-->
+    <!--****** 宝贝儿，看见这个时候，删掉下面的统计代码哦~ ******-->
+    <!--************* 再推荐下我的第一篇博客哦~~ ****************-->
+    <!--*********************************************************-->
+
+    <div class="hide">
+        <script type="text/javascript" src="http://js.tongji.linezing.com/2727758/tongji.js"></script>
+        <noscript><a href="http://www.linezing.com"><img src="http://img.tongji.linezing.com/2727758/tongji.gif"/></a></noscript>
+    </div>
+    <script type="text/javascript">
+        $(function(){
+            $('.home-follow').click(function(e){
+                e.preventDefault();
+
+                if($('.home-contact').is(':visible')){
+                    $('.home-contact').slideUp(100);
+                }else{
+                    $('.home-contact').slideDown(100);
+                }
+            });
+        })
+    </script>
+</body>
+</html>

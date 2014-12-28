@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <!--
+    * Author:        ym 
+    -->
+    <meta charset="utf-8" />
+    <title>androidL预言 | Yangming.com</title>
+    <meta name="author" content="ym" />
+    <meta name="renderer" content="webkit">
+    <meta name="description" content="ym's Blog" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0">
+    <link rel="stylesheet" href="/css/default.css" type="text/css" />
+    <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon" />
+    <link rel="alternate" type="application/atom+xml" title="Recent Entries" href="/atom.xml" />
+    <script src="/js/jquery-1.7.1.min.js" type="text/javascript"></script>
+</head>
+<body>
+
+    <div class="home-menu">
+        <div class="home-icon-con">
+            <a class="home-menu-icon" href="/">YangMing</a>
+            <a class="home-follow" href="#" title="Contact Me">+</a>
+        </div>
+		<!--
+        <div class="home-contact">
+            <a href="http://weibo.com/beiyuu/" target="_blank" style="margin-left:-5px;"><img src="http://www.weibo.com/favicon.ico" alt="" width="25"/></a>
+            <a href="http://www.douban.com/people/beiyuu/" target="_blank" style="text-align:center;"><img src="http://www.douban.com/favicon.ico" alt="" width="22"/></a>
+            <a href="http://instagram.com/beiyuu/" target="_blank" style="text-align:right"><img src="http://d36xtkk24g8jdx.cloudfront.net/bluebar/00c6602/images/ico/favicon.ico" alt="" width="22"/></a>
+        </div>
+		-->
+    </div>
+
+    <link rel="stylesheet" href="/js/prettify/prettify.css" />
+<style type="text/css">
+    body { background:#e8e8e8; }
+    @media screen and (max-width: 750px){
+        body { background:#fff; }
+    }
+    @media screen and (max-width: 1020px){
+        body { background:#fff; }
+    }
+</style>
+
+<div id="content">
+    <div class="entry">
+        <h1 class="entry-title"><a href="/android_L" title="androidL预言">androidL预言</a></h1>
+        <p class="entry-date">2014-09-30</p>
+        <h2>64bit / ART (重要)</h2>
+
+<ul>
+<li>Android 4.4 之下ART为可选Runtime, 默认仍然为Delivik, AndroidL默认Runtime为ART</li>
+<li>支持ARM, x86 and MIPS processors</li>
+<li>兼容 64-bit CPU</li>
+<li>x2 faster</li>
+<li>多数应用不需要更改就可以在ART上运行</li>
+<li>ART最终会使用(目前不是) Compacting garbage collector, 对象会在GC后改变地址, 所以JNI代码可能会有兼容问题. (可以使用工具检查: ​http://android-developers.blogspot.hk/2011/07/debugging-android-jni-with-checkjni.html)</li>
+<li>Delivik中Java的Stack和Native的Stack是分开的, ART则是共用的.</li>
+<li>有些程序可能依赖/system/framework, /data/dalvik-cache下的odex文件, 现在这些文件会变成ELF格式的, 所以最好不要干这种事情.</li>
+<li>ART编译器可以十分可靠的处理标准JAVA字节码,但是不见得能很好的处理Delivik字节码,尤其是经过混淆/优化的字节码可能会遭遇ART编译失败.</li>
+<li>System.gc() 不再很有效, 用多了反而会有害, 总之不能依靠这个, 可以通过判断当前的Runtime是不是ART来决定是否调用gc()</li>
+<li>部分JNI函数开始抛异常了(所谓的更加严格的JNI规范, 可以使用CheckJNI工具进行检查)</li>
+</ul>
+
+
+<h3>通知栏</h3>
+
+<ul>
+<li>UI风格发生变化</li>
+<li>Head-off通知栏, 以悬浮窗的模式显示在屏幕顶部</li>
+<li>使用 Ringtone/ MediaPlayer / Vibrator 发出声音的Notification应该把代码去掉, 或者使用 Notification.Builder来设置声音和震动.</li>
+</ul>
+
+
+<h3>ActivityManager.getRecentTasks() (重要)</h3>
+
+<ul>
+<li>出于隐私问题, 这个API已经标记为失效, 出于兼容性考虑, 仍然会返回部分数据.</li>
+<li>应用可以通过android.app.ActivityManager?.getAppTasks() 检索自己的Task</li>
+</ul>
+
+
+<h3>UI</h3>
+
+<ul>
+<li>View shadows (原来只是支持x/y方向的shadow, 现在支持z方向, 很多情况下阴影不需要做到切图里了)</li>
+<li>RecyclerView (一个更高级的ListView, 在性能/内存使用上有优化)</li>
+<li>CardView</li>
+</ul>
+
+
+<h3>Lockscreen Notifications</h3>
+
+<ul>
+<li>VISIBILITY_PRIVATE: 显示通知的基本信息, 比如图标,内容不展示</li>
+<li>VISIBILITY_PUBLIC: 所有通知内容都显示</li>
+<li>VISIBILITY_SECRET: 啥都不显示
+锁屏时显示通知.
+<img src="/images/android/androidL_1.png" title="Optional title" alt="Alt text" />
+
+<h3>New Recent App View</h3>
+
+<h3>Improved Graphics</h3></li>
+<li>支持OpenGL ES 3.1</li>
+<li>Android Extension Pack</li>
+</ul>
+
+
+<h3>Concurrent documents and activities in the Recents screen</h3>
+
+<ul>
+<li>统一个应用可以有多个任务并存, 可以相互切换.</li>
+</ul>
+
+
+<h3>存储</h3>
+
+<ul>
+<li>DocumentsProvider : 允许用户选中目录, 对整个目录以及子目录设置读写权限(不需要用户逐一确认)</li>
+<li>android.content.Context.getExternalMediaDirs() 提供了一个新的存储APP相关的媒体文件的机制, 可以帮助MediaStore更快的索引媒体文件. (重要)</li>
+</ul>
+
+
+<h3>无线网络</h3>
+
+<ul>
+<li>多个网络连接并存 (重要)</li>
+</ul>
+
+
+<h3>Bluetooth 4.1</h3>
+
+<p>蓝牙4.3 / Bluetooth Low Energy
+Volta / Battery Histrian
+JobScheduler?
+更加详细的应用耗电信息, 提供了分析工具, 对APP优化应该有很大帮助</p>
+
+<h3>Sec. &amp; Privacy</h3>
+
+<h3>WebView</h3>
+
+<p>新增支持 :</p>
+
+<p>WebAudio
+- WebGL
+- WebRTC</p>
+
+<h3>Google play service , system update</h3>
+
+<ul>
+<li>可以通过Google play下载漏洞补丁
+
+<h3>NFC</h3></li>
+<li>Android Beam加入到分享菜单中
+
+<h3>API示例</h3>
+
+<h3>参考</h3></li>
+<li>​http://developer.android.com/preview/api-overview.html</li>
+<li>​http://developer.android.com/preview/reference.html</li>
+<li>​http://developer.android.com/preview/material/index.html</li>
+</ul>
+
+
+<p>PNG压缩工具
+在线： ​https://tinypng.com/ 目前可用host（54.194.15.171 tinypng.com）</p>
+
+<p>工具：PNGGauntlet ​http://www.downxia.com/downinfo/25032.html</p>
+
+<h2>#</h2>
+
+
+        <div id="disqus_container">
+            <div style="margin-bottom:20px" class="right">
+                <script type="text/javascript" charset="utf-8">
+                (function(){
+                  var _w = 86 , _h = 16;
+                  var param = {
+                    url:location.href,
+                    type:'6',
+                    count:'', /**是否显示分享数，1显示(可选)*/
+                    appkey:'', /**您申请的应用appkey,显示分享来源(可选)*/
+                    title:'', /**分享的文字内容(可选，默认为所在页面的title)*/
+                    pic:'', /**分享图片的路径(可选)*/
+                    ralateUid:'1855270953', /**关联用户的UID，分享微博会@该用户(可选)*/
+                    language:'zh_cn', /**设置语言，zh_cn|zh_tw(可选)*/
+                    rnd:new Date().valueOf()
+                  }
+                  var temp = [];
+                  for( var p in param ){
+                    temp.push(p + '=' + encodeURIComponent( param[p] || '' ) )
+                  }
+                  document.write('<iframe allowTransparency="true" frameborder="0" scrolling="no" src="http://hits.sinajs.cn/A1/weiboshare.html?' + temp.join('&') + '" width="'+ _w+'" height="'+_h+'"></iframe>')
+                })()
+                </script>
+            </div>
+            <a href="#" class="comment" onclick="return false;">点击查看评论</a>
+            <div id="disqus_thread"></div>
+        </div>
+    </div>
+
+    <div class="sidenav">
+        <iframe width="100%" height="75" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=75&fansRow=2&ptype=1&speed=0&skin=5&isTitle=0&noborder=0&isWeibo=0&isFans=0&uid=1855270953&verifier=375b89d6&dpc=1"></iframe>
+    </div>
+
+    <div class="sidenav">
+        <h2>Blog</h2>
+        <ul class="artical-list">
+        
+            <li><a href="/view">android的View绘制</a></li>
+        
+            <li><a href="/ndk">android的NDK调试常见问题</a></li>
+        
+            <li><a href="/git-svn">git和SVN配合</a></li>
+        
+            <li><a href="/sqlite-efficiency">关于java String的匹配问题</a></li>
+        
+            <li><a href="/java-String">关于java String的匹配问题</a></li>
+        
+            <li><a href="/andoird-ant">ant打包策略</a></li>
+        
+            <li><a href="/android-diandi">android的ListView常见问题</a></li>
+        
+            <li><a href="/android_L">androidL预言</a></li>
+        
+            <li><a href="/android-lint">android辅助工具</a></li>
+        
+            <li><a href="/first-commit">github 和jekyll方法</a></li>
+        
+            <li><a href="/vps-config-python-vitrualenv-flask-gunicorn-supervisor-nginx">VPS环境搭建详解 (Virtualenv+Gunicorn+Supervisor+Nginx)</a></li>
+        
+            <li><a href="/css3-animation">CSS3动画详解</a></li>
+        
+        </ul>
+
+        <h2>Opinion</h2>
+        <ul class="artical-list">
+        
+            <li><a href="/douban-fm">豆瓣FM(iOS 3.0)使用体会</a></li>
+        
+            <li><a href="/jobs-interview">史蒂夫·乔布斯：遗失的访谈</a></li>
+        
+            <li><a href="/40-ama-55-grammy">40届全美音乐奖和55届格莱美颁奖演出观感</a></li>
+        
+            <li><a href="/build-facebook">只有好的棋手才会走运</a></li>
+        
+            <li><a href="/bad-list-design">令人焦虑的列表设计</a></li>
+        
+            <li><a href="/about-simplify">胡言乱语说简单</a></li>
+        
+            <li><a href="/auto-edit-bar">随内容滚动隐藏的工具栏</a></li>
+        
+            <li><a href="/side-slide">如果侧滑成为APP标配</a></li>
+        
+            <li><a href="/needs-video">谈谈刚需和360影视</a></li>
+        
+        </ul>
+
+        <h2>Project</h2>
+        <ul class="artical-list">
+        
+            <li><a href="/tabby">Tabby</a></li>
+        
+            <li><a href="/notty-notes">Notty Notes</a></li>
+        
+            <li><a href="/overapi-cheatsheet">OverAPI</a></li>
+        
+            <li><a href="/raining-in-chrome">听雨</a></li>
+        
+        </ul>
+    </div>
+</div>
+
+<script src="/js/post.js" type="text/javascript"></script>
+
+
+    <!--*********************************************************-->
+    <!--****** 宝贝儿，看见这个时候，删掉下面的统计代码哦~ ******-->
+    <!--************* 再推荐下我的第一篇博客哦~~ ****************-->
+    <!--*********************************************************-->
+
+    <div class="hide">
+        <script type="text/javascript" src="http://js.tongji.linezing.com/2727758/tongji.js"></script>
+        <noscript><a href="http://www.linezing.com"><img src="http://img.tongji.linezing.com/2727758/tongji.gif"/></a></noscript>
+    </div>
+    <script type="text/javascript">
+        $(function(){
+            $('.home-follow').click(function(e){
+                e.preventDefault();
+
+                if($('.home-contact').is(':visible')){
+                    $('.home-contact').slideUp(100);
+                }else{
+                    $('.home-contact').slideDown(100);
+                }
+            });
+        })
+    </script>
+</body>
+</html>

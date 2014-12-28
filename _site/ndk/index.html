@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <!--
+    * Author:        ym 
+    -->
+    <meta charset="utf-8" />
+    <title>android的NDK调试常见问题 | Yangming.com</title>
+    <meta name="author" content="ym" />
+    <meta name="renderer" content="webkit">
+    <meta name="description" content="ym's Blog" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0">
+    <link rel="stylesheet" href="/css/default.css" type="text/css" />
+    <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon" />
+    <link rel="alternate" type="application/atom+xml" title="Recent Entries" href="/atom.xml" />
+    <script src="/js/jquery-1.7.1.min.js" type="text/javascript"></script>
+</head>
+<body>
+
+    <div class="home-menu">
+        <div class="home-icon-con">
+            <a class="home-menu-icon" href="/">YangMing</a>
+            <a class="home-follow" href="#" title="Contact Me">+</a>
+        </div>
+		<!--
+        <div class="home-contact">
+            <a href="http://weibo.com/beiyuu/" target="_blank" style="margin-left:-5px;"><img src="http://www.weibo.com/favicon.ico" alt="" width="25"/></a>
+            <a href="http://www.douban.com/people/beiyuu/" target="_blank" style="text-align:center;"><img src="http://www.douban.com/favicon.ico" alt="" width="22"/></a>
+            <a href="http://instagram.com/beiyuu/" target="_blank" style="text-align:right"><img src="http://d36xtkk24g8jdx.cloudfront.net/bluebar/00c6602/images/ico/favicon.ico" alt="" width="22"/></a>
+        </div>
+		-->
+    </div>
+
+    <link rel="stylesheet" href="/js/prettify/prettify.css" />
+<style type="text/css">
+    body { background:#e8e8e8; }
+    @media screen and (max-width: 750px){
+        body { background:#fff; }
+    }
+    @media screen and (max-width: 1020px){
+        body { background:#fff; }
+    }
+</style>
+
+<div id="content">
+    <div class="entry">
+        <h1 class="entry-title"><a href="/ndk" title="android的NDK调试常见问题">android的NDK调试常见问题</a></h1>
+        <p class="entry-date">2014-11-17</p>
+        <h3>遇到的问题</h3>
+
+<p>https://developer.android.com/tools/sdk/ndk/index.html#Installing</p>
+
+<h3>用GDB进行so调试</h3>
+
+<h2>编译</h2>
+
+<ol>
+<li>要有没有strip的so
+strip命令位置: toolchains/arm-linux-androideabi-4.6/prebuilt/linux-x86_64/arm-linux-androideabi/bin/strip 注意strip前要保留原来的so文件,以后调试时需要使用</li>
+<li>其他: 用nm命令 可以列出so内的符号,可以用于查看so是否有符号,如 nm xx.so</li>
+</ol>
+
+
+<h2>GDB 调试so</h2>
+
+<p>需要的文件:
+gdbserver 位置:android-ndk-r8b/prebuilt/android-arm/gdbserver/gdbserver
+gdb 位置:android-ndk-r8b/toolchains/arm-linux-androideabi-4.6/prebuilt/linux-x86/bin/arm-linux-androideabi-gdb
+步骤:</p>
+
+<ol>
+<li>apk 打开调试开关, AndroidManifest.xml 中, application节点 加入 android:debuggable="true",</li>
+<li>如果是root的机器,apk没有打开调试开关也可以进行调试,如果是已经root的机器,把gdbserver放到系统(手机)的目录下(可以随意放置,一般放到system/bin目录下方便输入命令)</li>
+<li>如果是没有root的机器,需要把gdbserver打到apk的包里(放到lib目录下),这样安装apk的的时候会把gdbserver拷贝到/data/data/app名称/lib/gdbserver</li>
+<li>启动apk,可以直接启动</li>
+<li>用 adb shell 进行控制台,用ps命令查看app的进程id</li>
+<li>如果是root机器,可以su后,直接用gdbserver attach ,命令行是 gdbserver :端口号 --attach pid 如 : su gdbserver :2345 --attach pid</li>
+<li>如果是未root机器,只能用以下方式 run-as app名称 lib/gdbserver :端口号 --attach pid</li>
+<li>在pc上运行adb forward tcp:端口号(指PC上的端口) tcp:端口号(手机上的端口) 建立端口映射</li>
+<li>把/system/bin/app_process /system/bin/linker, /system/lib/libc.so 从手机上拷贝出来(可以用adb pull 命令),其他so文件也拷贝出来也行,我们假定拷贝的目录为$lib</li>
+<li><p>运行arm-linux-androideabi-gdb ,输入以下命令序列
+file $lib/app_process $lib目录中有从手机拷贝出来的app_process,linker和libc.so这些文件 ,如我放到了/home/qrf/android_ndk_debug/mydev目录下</p>
+
+<p>set solib-absolute-prefix $nostriplib_dir $nostriplib_dir是存放了没有strip的so的目录,如 set solib-absolute-prefix /home/qrf/code/cmso</p>
+
+<p>set solib-search-path $lib:$nostriplib_dir 如set solib-search-path /home/qrf/android_ndk_debug/mydev:/home/qrf/code/cmso</p>
+
+<p>target remote :端口号 连上gdbserver</p>
+
+<p>dir source 指定源码路径
+后面就是gdb调试的问题了,进入gdb调试界面可以用ctrl x + a 来切换到<strong><em>文本模式</em></strong>(可以查看源码), 如果要配合ddd前端, 用apt-get install ddd ,然后 用ddd --debugger arm-linux-androideabi-gdb 使用,但是ddd有时会不太灵光,还是直接使用gdb比较方便</p></li>
+</ol>
+
+
+<p>附一些常用的gdb命令:</p>
+
+<pre><code>backtrace/bt    //列出当前线程堆栈
+
+thread apply all bt //列出所有线程调用堆栈
+
+thread 线程号//切换线程上下文
+
+ctrl x+a //切换到源码浏览窗口 ，再按ctrl x+a 切换回去
+
+ctrl c //中断当前运行
+
+c/continue //继续运行
+
+info sharedlibrary //列出so加载列表
+
+info threads //列出线程列表
+
+info locals //列出当前堆栈上的局部变量
+
+info breakpoints //列出断点
+
+print 变量名 //列出变量内容 
+
+print 变量名= //修改变量名的值
+
+b/break 源码文件名:行号 //下断点
+
+d/delete 断点id //删除断点
+
+f/frame 栈帧序号 //切换到指定的栈帧 如 f 0 顶层
+
+s/step //下一步，有函数调用会进入
+
+n/next //下一步，有函数调用不会进入
+
+fin/finish //返回到上层函数调用
+
+disable 断点id  //禁用断点
+
+enable 断点id  //启用断点
+
+disassemble/disas //查看汇编代码
+</code></pre>
+
+
+        <div id="disqus_container">
+            <div style="margin-bottom:20px" class="right">
+                <script type="text/javascript" charset="utf-8">
+                (function(){
+                  var _w = 86 , _h = 16;
+                  var param = {
+                    url:location.href,
+                    type:'6',
+                    count:'', /**是否显示分享数，1显示(可选)*/
+                    appkey:'', /**您申请的应用appkey,显示分享来源(可选)*/
+                    title:'', /**分享的文字内容(可选，默认为所在页面的title)*/
+                    pic:'', /**分享图片的路径(可选)*/
+                    ralateUid:'1855270953', /**关联用户的UID，分享微博会@该用户(可选)*/
+                    language:'zh_cn', /**设置语言，zh_cn|zh_tw(可选)*/
+                    rnd:new Date().valueOf()
+                  }
+                  var temp = [];
+                  for( var p in param ){
+                    temp.push(p + '=' + encodeURIComponent( param[p] || '' ) )
+                  }
+                  document.write('<iframe allowTransparency="true" frameborder="0" scrolling="no" src="http://hits.sinajs.cn/A1/weiboshare.html?' + temp.join('&') + '" width="'+ _w+'" height="'+_h+'"></iframe>')
+                })()
+                </script>
+            </div>
+            <a href="#" class="comment" onclick="return false;">点击查看评论</a>
+            <div id="disqus_thread"></div>
+        </div>
+    </div>
+
+    <div class="sidenav">
+        <iframe width="100%" height="75" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=75&fansRow=2&ptype=1&speed=0&skin=5&isTitle=0&noborder=0&isWeibo=0&isFans=0&uid=1855270953&verifier=375b89d6&dpc=1"></iframe>
+    </div>
+
+    <div class="sidenav">
+        <h2>Blog</h2>
+        <ul class="artical-list">
+        
+            <li><a href="/view">android的View绘制</a></li>
+        
+            <li><a href="/ndk">android的NDK调试常见问题</a></li>
+        
+            <li><a href="/git-svn">git和SVN配合</a></li>
+        
+            <li><a href="/sqlite-efficiency">关于java String的匹配问题</a></li>
+        
+            <li><a href="/java-String">关于java String的匹配问题</a></li>
+        
+            <li><a href="/andoird-ant">ant打包策略</a></li>
+        
+            <li><a href="/android-diandi">android的ListView常见问题</a></li>
+        
+            <li><a href="/android_L">androidL预言</a></li>
+        
+            <li><a href="/android-lint">android辅助工具</a></li>
+        
+            <li><a href="/first-commit">github 和jekyll方法</a></li>
+        
+            <li><a href="/vps-config-python-vitrualenv-flask-gunicorn-supervisor-nginx">VPS环境搭建详解 (Virtualenv+Gunicorn+Supervisor+Nginx)</a></li>
+        
+            <li><a href="/css3-animation">CSS3动画详解</a></li>
+        
+        </ul>
+
+        <h2>Opinion</h2>
+        <ul class="artical-list">
+        
+            <li><a href="/douban-fm">豆瓣FM(iOS 3.0)使用体会</a></li>
+        
+            <li><a href="/jobs-interview">史蒂夫·乔布斯：遗失的访谈</a></li>
+        
+            <li><a href="/40-ama-55-grammy">40届全美音乐奖和55届格莱美颁奖演出观感</a></li>
+        
+            <li><a href="/build-facebook">只有好的棋手才会走运</a></li>
+        
+            <li><a href="/bad-list-design">令人焦虑的列表设计</a></li>
+        
+            <li><a href="/about-simplify">胡言乱语说简单</a></li>
+        
+            <li><a href="/auto-edit-bar">随内容滚动隐藏的工具栏</a></li>
+        
+            <li><a href="/side-slide">如果侧滑成为APP标配</a></li>
+        
+            <li><a href="/needs-video">谈谈刚需和360影视</a></li>
+        
+        </ul>
+
+        <h2>Project</h2>
+        <ul class="artical-list">
+        
+            <li><a href="/tabby">Tabby</a></li>
+        
+            <li><a href="/notty-notes">Notty Notes</a></li>
+        
+            <li><a href="/overapi-cheatsheet">OverAPI</a></li>
+        
+            <li><a href="/raining-in-chrome">听雨</a></li>
+        
+        </ul>
+    </div>
+</div>
+
+<script src="/js/post.js" type="text/javascript"></script>
+
+
+    <!--*********************************************************-->
+    <!--****** 宝贝儿，看见这个时候，删掉下面的统计代码哦~ ******-->
+    <!--************* 再推荐下我的第一篇博客哦~~ ****************-->
+    <!--*********************************************************-->
+
+    <div class="hide">
+        <script type="text/javascript" src="http://js.tongji.linezing.com/2727758/tongji.js"></script>
+        <noscript><a href="http://www.linezing.com"><img src="http://img.tongji.linezing.com/2727758/tongji.gif"/></a></noscript>
+    </div>
+    <script type="text/javascript">
+        $(function(){
+            $('.home-follow').click(function(e){
+                e.preventDefault();
+
+                if($('.home-contact').is(':visible')){
+                    $('.home-contact').slideUp(100);
+                }else{
+                    $('.home-contact').slideDown(100);
+                }
+            });
+        })
+    </script>
+</body>
+</html>

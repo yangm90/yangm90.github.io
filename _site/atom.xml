@@ -1,0 +1,1022 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+ 
+   <title>Yangming.com</title>
+   <link href="http://yangm90.github.io/Blog//atom.xml" rel="self" type="application/atom+xml"/>
+   <link href="http://yangm90.github.io/Blog/" rel="alternate" type="text/html" />
+   <updated>2014-12-07T22:44:27+08:00</updated>
+   <id>http://yangm90.github.io/Blog/</id>
+   <author>
+     <name></name>
+     <email></email>
+   </author>
+
+   
+   <entry>
+     <title>android的View绘制</title>
+     <link href="http://beiyuu.com/view"/>
+     <updated>2014-11-28T00:00:00+08:00</updated>
+     <id>http://beiyuu.com/view</id>
+     <content type="html">&lt;h3&gt;遇到的问题&lt;/h3&gt;
+
+&lt;p&gt;https://developer.android.com/tools/sdk/ndk/index.html#Installing&lt;/p&gt;
+
+&lt;h3&gt;关于View被绘制到屏幕的过程&lt;/h3&gt;
+
+&lt;h2&gt;onMeasure()&lt;/h2&gt;
+
+&lt;p&gt;measure是测量的意思，那么onMeasure()方法顾名思义就是用于测量视图的大小的。View系统的绘制流程会从ViewRoot的performTraversals()方法中开始，在其内部调用View的measure()方法。measure()方法接收两个参数，widthMeasureSpec和heightMeasureSpec，这两个值分别用于确定视图的宽度和高度的规格和大小。&lt;/p&gt;
+
+&lt;p&gt;MeasureSpec的值由specSize和specMode共同组成的，其中specSize记录的是大小，specMode记录的是规格。specMode一共有三种类型，如下所示:&lt;/p&gt;
+
+&lt;ol&gt;
+&lt;li&gt;&lt;p&gt;EXACTLY
+表示父视图希望子视图的大小应该是由specSize的值来决定的，系统默认会按照这个规则来设置子视图的大小，开发人员当然也可以按照自己的意愿设置成任意的大小。&lt;/p&gt;&lt;/li&gt;
+&lt;li&gt;&lt;p&gt;AT_MOST
+表示子视图最多只能是specSize中指定的大小，开发人员应该尽可能小得去设置这个视图，并且保证不会超过specSize。系统默认会按照这个规则来设置子视图的大小，开发人员当然也可以按照自己的意愿设置成任意的大小。&lt;/p&gt;&lt;/li&gt;
+&lt;li&gt;&lt;p&gt;UNSPECIFIED
+表示开发人员可以将视图按照自己的意愿设置成任意的大小，没有任何限制。这种情况比较少见，不太会用到。&lt;/p&gt;&lt;/li&gt;
+&lt;/ol&gt;
+
+
+&lt;p&gt;那么你可能会有疑问了，widthMeasureSpec和heightMeasureSpec这两个值又是从哪里得到的呢？通常情况下，这两个值都是由父视图经过计算后传递给子视图的，说明父视图会在一定程度上决定子视图的大小。但是最外层的根视图，它的widthMeasureSpec和heightMeasureSpec又是从哪里得到的呢？这就需要去分析ViewRoot中的源码了，观察performTraversals()方法可以发现如下代码：&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;childWidthMeasureSpec = getRootMeasureSpec(desiredWindowWidth, lp.width); 
+    childHeightMeasureSpec = getRootMeasureSpec(desiredWindowHeight, lp.height);&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;可以看到，这里调用了getRootMeasureSpec()方法去获取widthMeasureSpec和heightMeasureSpec的值，注意方法中传入的参数，其中lp.width和lp.height在创建ViewGroup实例的时候就被赋值了，它们都等于MATCH_PARENT。然后看下getRootMeasureSpec()方法中的代码，如下所示：&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;private int getRootMeasureSpec(int windowSize, int rootDimension) {
+    int measureSpec;
+    switch (rootDimension) {
+    case ViewGroup.LayoutParams.MATCH_PARENT:
+        measureSpec = MeasureSpec.makeMeasureSpec(windowSize, MeasureSpec.EXACTLY);
+        break;
+    case ViewGroup.LayoutParams.WRAP_CONTENT:
+        measureSpec = MeasureSpec.makeMeasureSpec(windowSize, MeasureSpec.AT_MOST);
+        break;
+    default:
+        measureSpec = MeasureSpec.makeMeasureSpec(rootDimension, MeasureSpec.EXACTLY);
+        break;
+    }
+    return measureSpec;
+    }&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;可以看到，这里使用了MeasureSpec.makeMeasureSpec()方法来组装一个MeasureSpec，当rootDimension参数等于MATCH_PARENT的时候，MeasureSpec的specMode就等于EXACTLY，当rootDimension等于WRAP_CONTENT的时候，MeasureSpec的specMode就等于AT_MOST。并且MATCH_PARENT和WRAP_CONTENT时的specSize都是等于windowSize的，也就意味着根视图总是会充满全屏的。&lt;/p&gt;
+
+&lt;p&gt;介绍了这么多MeasureSpec相关的内容，接下来我们看下View的measure()方法里面的代码吧，如下所示：&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;public final void measure(int widthMeasureSpec, int heightMeasureSpec) {
+    if ((mPrivateFlags &amp;amp; FORCE_LAYOUT) == FORCE_LAYOUT ||
+            widthMeasureSpec != mOldWidthMeasureSpec ||
+            heightMeasureSpec != mOldHeightMeasureSpec) {
+        mPrivateFlags &amp;amp;= ~MEASURED_DIMENSION_SET;
+        if (ViewDebug.TRACE_HIERARCHY) {
+            ViewDebug.trace(this, ViewDebug.HierarchyTraceType.ON_MEASURE);
+        }
+        onMeasure(widthMeasureSpec, heightMeasureSpec);
+        if ((mPrivateFlags &amp;amp; MEASURED_DIMENSION_SET) != MEASURED_DIMENSION_SET) {
+            throw new IllegalStateException(&amp;quot;onMeasure() did not set the&amp;quot;
+                    + &amp;quot; measured dimension by calling&amp;quot;
+                    + &amp;quot; setMeasuredDimension()&amp;quot;);
+        }
+        mPrivateFlags |= LAYOUT_REQUIRED;
+    }
+    mOldWidthMeasureSpec = widthMeasureSpec;
+    mOldHeightMeasureSpec = heightMeasureSpec;
+}&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;注意观察，measure()这个方法是final的，因此我们无法在子类中去重写这个方法，说明Android是不允许我们改变View的measure框架的。然后在第9行调用了onMeasure()方法，这里才是真正去测量并设置View大小的地方，默认会调用getDefaultSize()方法来获取视图的大小，如下所示：&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;public static int getDefaultSize(int size, int measureSpec) {
+    int result = size;
+    int specMode = MeasureSpec.getMode(measureSpec);
+    int specSize = MeasureSpec.getSize(measureSpec);
+    switch (specMode) {
+    case MeasureSpec.UNSPECIFIED:
+        result = size;
+        break;
+    case MeasureSpec.AT_MOST:
+    case MeasureSpec.EXACTLY:
+        result = specSize;
+        break;
+    }
+    return result;
+}&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;这里传入的measureSpec是一直从measure()方法中传递过来的。然后调用MeasureSpec.getMode()方法可以解析出specMode，调用MeasureSpec.getSize()方法可以解析出specSize。接下来进行判断，如果specMode等于AT_MOST或EXACTLY就返回specSize，这也是系统默认的行为。之后会在onMeasure()方法中调用setMeasuredDimension()方法来设定测量出的大小，这样一次measure过程就结束了。&lt;/p&gt;
+
+&lt;p&gt;当然，一个界面的展示可能会涉及到很多次的measure，因为一个布局中一般都会包含多个子视图，每个视图都需要经历一次measure过程。ViewGroup中定义了一个measureChildren()方法来去测量子视图的大小，如下所示：&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;protected void measureChildren(int widthMeasureSpec, int heightMeasureSpec) {
+    final int size = mChildrenCount;
+    final View[] children = mChildren;
+    for (int i = 0; i &amp;lt; size; ++i) {
+        final View child = children[i];
+        if ((child.mViewFlags &amp;amp; VISIBILITY_MASK) != GONE) {
+            measureChild(child, widthMeasureSpec, heightMeasureSpec);
+        }
+    }
+}&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;可以看到，在第4行和第6行分别调用了getChildMeasureSpec()方法来去计算子视图的MeasureSpec，计算的依据就是布局文件中定义的MATCH_PARENT、WRAP_CONTENT等值，这个方法的内部细节就不再贴出。然后在第8行调用子视图的measure()方法，并把计算出的MeasureSpec传递进去，之后的流程就和前面所介绍的一样了。&lt;/p&gt;
+
+&lt;p&gt;当然，onMeasure()方法是可以重写的，也就是说，如果你不想使用系统默认的测量方式，可以按照自己的意愿进行定制，比如：&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;public class MyView extends View {
+
+    ......
+    
+    @Override
+    protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+        setMeasuredDimension(200, 200);
+    }
+
+    }&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;这样的话就把View默认的测量流程覆盖掉了，不管在布局文件中定义MyView这个视图的大小是多少，最终在界面上显示的大小都将会是200*200。&lt;/p&gt;
+
+&lt;p&gt;需要注意的是，在setMeasuredDimension()方法调用之后，我们才能使用getMeasuredWidth()和getMeasuredHeight()来获取视图测量出的宽高，以此之前调用这两个方法得到的值都会是0。&lt;/p&gt;
+
+&lt;p&gt;由此可见，视图大小的控制是由父视图、布局文件、以及视图本身共同完成的，父视图会提供给子视图参考的大小，而开发人员可以在XML文件中指定视图的大小，然后视图本身会对最终的大小进行拍板。&lt;/p&gt;
+
+&lt;h2&gt;onLayout()&lt;/h2&gt;
+
+&lt;p&gt;measure过程结束后，视图的大小就已经测量好了，接下来就是layout的过程了。正如其名字所描述的一样，这个方法是用于给视图进行布局的，也就是确定视图的位置。ViewRoot的performTraversals()方法会在measure结束后继续执行，并调用View的layout()方法来执行此过程，如下所示：&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;host.layout(0, 0, host.mMeasuredWidth, host.mMeasuredHeight);&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;layout()方法接收四个参数，分别代表着左、上、右、下的坐标，当然这个坐标是相对于当前视图的父视图而言的。可以看到，这里还把刚才测量出的宽度和高度传到了layout()方法中。那么我们来看下layout()方法中的代码是什么样的吧，如下所示：&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;public void layout(int l, int t, int r, int b) {
+    int oldL = mLeft;
+    int oldT = mTop;
+    int oldB = mBottom;
+    int oldR = mRight;
+    boolean changed = setFrame(l, t, r, b);
+    if (changed || (mPrivateFlags &amp;amp; LAYOUT_REQUIRED) == LAYOUT_REQUIRED) {
+        if (ViewDebug.TRACE_HIERARCHY) {
+            ViewDebug.trace(this, ViewDebug.HierarchyTraceType.ON_LAYOUT);
+        }
+        onLayout(changed, l, t, r, b);
+        mPrivateFlags &amp;amp;= ~LAYOUT_REQUIRED;
+        if (mOnLayoutChangeListeners != null) {
+            ArrayList&amp;lt;OnLayoutChangeListener&amp;gt; listenersCopy =
+                    (ArrayList&amp;lt;OnLayoutChangeListener&amp;gt;) mOnLayoutChangeListeners.clone();
+            int numListeners = listenersCopy.size();
+            for (int i = 0; i &amp;lt; numListeners; ++i) {
+                listenersCopy.get(i).onLayoutChange(this, l, t, r, b, oldL, oldT, oldR, oldB);
+            }
+        }
+    }
+    mPrivateFlags &amp;amp;= ~FORCE_LAYOUT;
+    }&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;在layout()方法中，首先会调用setFrame()方法来判断视图的大小是否发生过变化，以确定有没有必要对当前的视图进行重绘，同时还会在这里把传递过来的四个参数分别赋值给mLeft、mTop、mRight和mBottom这几个变量。接下来会在第11行调用onLayout()方法，正如onMeasure()方法中的默认行为一样，也许你已经迫不及待地想知道onLayout()方法中的默认行为是什么样的了。进入onLayout()方法，咦？怎么这是个空方法，一行代码都没有？！&lt;/p&gt;
+
+&lt;p&gt;没错，View中的onLayout()方法就是一个空方法，因为onLayout()过程是为了确定视图在布局中所在的位置，而这个操作应该是由布局来完成的，即父视图决定子视图的显示位置。既然如此，我们来看下ViewGroup中的onLayout()方法是怎么写的吧，代码如下：&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;@Override
+    protected abstract void onLayout(boolean changed, int l, int t, int r, int b);&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;可以看到，ViewGroup中的onLayout()方法竟然是一个抽象方法，这就意味着所有ViewGroup的子类都必须重写这个方法。没错，像LinearLayout、RelativeLayout等布局，都是重写了这个方法，然后在内部按照各自的规则对子视图进行布局的。由于LinearLayout和RelativeLayout的布局规则都比较复杂，就不单独拿出来进行分析了，这里我们尝试自定义一个布局，借此来更深刻地理解onLayout()的过程。&lt;/p&gt;
+
+&lt;p&gt;自定义的这个布局目标很简单，只要能够包含一个子视图，并且让子视图正常显示出来就可以了。那么就给这个布局起名叫做SimpleLayout吧，代码如下所示：&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;public class SimpleLayout extends ViewGroup {
+
+    public SimpleLayout(Context context, AttributeSet attrs) {
+        super(context, attrs);
+    }
+
+    @Override
+    protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+        super.onMeasure(widthMeasureSpec, heightMeasureSpec);
+        if (getChildCount() &amp;gt; 0) {
+            View childView = getChildAt(0);
+            measureChild(childView, widthMeasureSpec, heightMeasureSpec);
+        }
+    }
+
+    @Override
+    protected void onLayout(boolean changed, int l, int t, int r, int b) {
+        if (getChildCount() &amp;gt; 0) {
+            View childView = getChildAt(0);
+            childView.layout(0, 0, childView.getMeasuredWidth(), childView.getMeasuredHeight());
+        }
+    }
+
+}&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;代码非常的简单，我们来看下具体的逻辑吧。你已经知道，onMeasure()方法会在onLayout()方法之前调用，因此这里在onMeasure()方法中判断SimpleLayout中是否有包含一个子视图，如果有的话就调用measureChild()方法来测量出子视图的大小。&lt;/p&gt;
+
+&lt;p&gt;接着在onLayout()方法中同样判断SimpleLayout是否有包含一个子视图，然后调用这个子视图的layout()方法来确定它在SimpleLayout布局中的位置，这里传入的四个参数依次是0、0、childView.getMeasuredWidth()和childView.getMeasuredHeight()，分别代表着子视图在SimpleLayout中左上右下四个点的坐标。其中，调用childView.getMeasuredWidth()和childView.getMeasuredHeight()方法得到的值就是在onMeasure()方法中测量出的宽和高。&lt;/p&gt;
+
+&lt;p&gt;这样就已经把SimpleLayout这个布局定义好了，下面就是在XML文件中使用它了，如下所示：&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;&amp;lt;com.example.viewtest.SimpleLayout xmlns:android=&amp;quot;http://schemas.android.com/apk/res/android&amp;quot;
+    android:layout_width=&amp;quot;match_parent&amp;quot;
+    android:layout_height=&amp;quot;match_parent&amp;quot; &amp;gt;
+    
+    &amp;lt;ImageView 
+        android:layout_width=&amp;quot;wrap_content&amp;quot;
+        android:layout_height=&amp;quot;wrap_content&amp;quot;
+        android:src=&amp;quot;@drawable/ic_launcher&amp;quot;
+        /&amp;gt;
+    
+    &amp;lt;/com.example.viewtest.SimpleLayout&amp;gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;在onLayout()过程结束后，我们就可以调用getWidth()方法和getHeight()方法来获取视图的宽高了。说到这里，我相信很多朋友长久以来都会有一个疑问，getWidth()方法和getMeasureWidth()方法到底有什么区别呢？它们的值好像永远都是相同的。其实它们的值之所以会相同基本都是因为布局设计者的编码习惯非常好，实际上它们之间的差别还是挺大的。&lt;/p&gt;
+
+&lt;p&gt;首先getMeasureWidth()方法在measure()过程结束后就可以获取到了，而getWidth()方法要在layout()过程结束后才能获取到。另外，getMeasureWidth()方法中的值是通过setMeasuredDimension()方法来进行设置的，而getWidth()方法中的值则是通过视图右边的坐标减去左边的坐标计算出来的。&lt;/p&gt;
+
+&lt;p&gt;观察SimpleLayout中onLayout()方法的代码，这里给子视图的layout()方法传入的四个参数分别是0、0、childView.getMeasuredWidth()和childView.getMeasuredHeight()，因此getWidth()方法得到的值就是childView.getMeasuredWidth() - 0 = childView.getMeasuredWidth() ，所以此时getWidth()方法和getMeasuredWidth() 得到的值就是相同的，但如果你将onLayout()方法中的代码进行如下修改：&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;@Override
+    protected void onLayout(boolean changed, int l, int t, int r, int b) {
+    if (getChildCount() &amp;gt; 0) {
+        View childView = getChildAt(0);
+        childView.layout(0, 0, 200, 200);
+    }
+    }&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;这样getWidth()方法得到的值就是200 - 0 = 200，不会再和getMeasuredWidth()的值相同了。当然这种做法充分不尊重measure()过程计算出的结果，通常情况下是不推荐这么写的。getHeight()与getMeasureHeight()方法之间的关系同上，就不再重复分析了。&lt;/p&gt;
+
+&lt;h2&gt;onDraw()&lt;/h2&gt;
+
+&lt;p&gt;measure和layout的过程都结束后，接下来就进入到draw的过程了。同样，根据名字你就能够判断出，在这里才真正地开始对视图进行绘制。ViewRoot中的代码会继续执行并创建出一个Canvas对象，然后调用View的draw()方法来执行具体的绘制工作。draw()方法内部的绘制过程总共可以分为六步，其中第二步和第五步在一般情况下很少用到，因此这里我们只分析简化后的绘制过程。代码如下所示：&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;public void draw(Canvas canvas) {
+    if (ViewDebug.TRACE_HIERARCHY) {
+        ViewDebug.trace(this, ViewDebug.HierarchyTraceType.DRAW);
+    }
+    final int privateFlags = mPrivateFlags;
+    final boolean dirtyOpaque = (privateFlags &amp;amp; DIRTY_MASK) == DIRTY_OPAQUE &amp;amp;&amp;amp;
+            (mAttachInfo == null || !mAttachInfo.mIgnoreDirtyState);
+    mPrivateFlags = (privateFlags &amp;amp; ~DIRTY_MASK) | DRAWN;
+    // Step 1, draw the background, if needed
+    int saveCount;
+    if (!dirtyOpaque) {
+        final Drawable background = mBGDrawable;
+        if (background != null) {
+            final int scrollX = mScrollX;
+            final int scrollY = mScrollY;
+            if (mBackgroundSizeChanged) {
+                background.setBounds(0, 0,  mRight - mLeft, mBottom - mTop);
+                mBackgroundSizeChanged = false;
+            }
+            if ((scrollX | scrollY) == 0) {
+                background.draw(canvas);
+            } else {
+                canvas.translate(scrollX, scrollY);
+                background.draw(canvas);
+                canvas.translate(-scrollX, -scrollY);
+            }
+        }
+    }
+    final int viewFlags = mViewFlags;
+    boolean horizontalEdges = (viewFlags &amp;amp; FADING_EDGE_HORIZONTAL) != 0;
+    boolean verticalEdges = (viewFlags &amp;amp; FADING_EDGE_VERTICAL) != 0;
+    if (!verticalEdges &amp;amp;&amp;amp; !horizontalEdges) {
+        // Step 3, draw the content
+        if (!dirtyOpaque) onDraw(canvas);
+        // Step 4, draw the children
+        dispatchDraw(canvas);
+        // Step 6, draw decorations (scrollbars)
+        onDrawScrollBars(canvas);
+        // we&amp;#39;re done...
+        return;
+    }
+    }&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;可以看到，第一步是从第9行代码开始的，这一步的作用是对视图的背景进行绘制。这里会先得到一个mBGDrawable对象，然后根据layout过程确定的视图位置来设置背景的绘制区域，之后再调用Drawable的draw()方法来完成背景的绘制工作。那么这个mBGDrawable对象是从哪里来的呢？其实就是在XML中通过android:background属性设置的图片或颜色。当然你也可以在代码中通过setBackgroundColor()、setBackgroundResource()等方法进行赋值。&lt;/p&gt;
+
+&lt;p&gt;接下来的第三步是在第34行执行的，这一步的作用是对视图的内容进行绘制。可以看到，这里去调用了一下onDraw()方法，那么onDraw()方法里又写了什么代码呢？进去一看你会发现，原来又是个空方法啊。其实也可以理解，因为每个视图的内容部分肯定都是各不相同的，这部分的功能交给子类来去实现也是理所当然的。&lt;/p&gt;
+
+&lt;p&gt;第三步完成之后紧接着会执行第四步，这一步的作用是对当前视图的所有子视图进行绘制。但如果当前的视图没有子视图，那么也就不需要进行绘制了。因此你会发现View中的dispatchDraw()方法又是一个空方法，而ViewGroup的dispatchDraw()方法中就会有具体的绘制代码。&lt;/p&gt;
+
+&lt;p&gt;以上都执行完后就会进入到第六步，也是最后一步，这一步的作用是对视图的滚动条进行绘制。那么你可能会奇怪，当前的视图又不一定是ListView或者ScrollView，为什么要绘制滚动条呢？其实不管是Button也好，TextView也好，任何一个视图都是有滚动条的，只是一般情况下我们都没有让它显示出来而已。绘制滚动条的代码逻辑也比较复杂，这里就不再贴出来了，因为我们的重点是第三步过程&lt;/p&gt;
+
+&lt;p&gt;通过以上流程分析，相信大家已经知道，View是不会帮我们绘制内容部分的，因此需要每个视图根据想要展示的内容来自行绘制。如果你去观察TextView、ImageView等类的源码，你会发现它们都有重写onDraw()这个方法，并且在里面执行了相当不少的绘制逻辑。绘制的方式主要是借助Canvas这个类，它会作为参数传入到onDraw()方法中，供给每个视图使用。Canvas这个类的用法非常丰富，基本可以把它当成一块画布，在上面绘制任意的东西，那么我们就来尝试一下吧。&lt;/p&gt;
+
+&lt;p&gt;这里简单起见，我只是创建一个非常简单的视图，并且用Canvas随便绘制了一点东西，代码如下所示：&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;public class MyView extends View {
+
+    private Paint mPaint;
+
+    public MyView(Context context, AttributeSet attrs) {
+        super(context, attrs);
+        mPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    }
+
+    @Override
+    protected void onDraw(Canvas canvas) {
+        mPaint.setColor(Color.YELLOW);
+        canvas.drawRect(0, 0, getWidth(), getHeight(), mPaint);
+        mPaint.setColor(Color.BLUE);
+        mPaint.setTextSize(20);
+        String text = &amp;quot;Hello View&amp;quot;;
+        canvas.drawText(text, 0, getHeight() / 2, mPaint);
+    }
+    }&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;可以看到，我们创建了一个自定义的MyView继承自View，并在MyView的构造函数中创建了一个Paint对象。Paint就像是一个画笔一样，配合着Canvas就可以进行绘制了。这里我们的绘制逻辑比较简单，在onDraw()方法中先是把画笔设置成黄色，然后调用Canvas的drawRect()方法绘制一个矩形。然后在把画笔设置成蓝色，并调整了一下文字的大小，然后调用drawText()方法绘制了一段文字。&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;http://blog.csdn.net/guolin_blog/article/details/16330267&lt;/p&gt;
+</content>
+   </entry>
+   
+   <entry>
+     <title>android的NDK调试常见问题</title>
+     <link href="http://beiyuu.com/ndk"/>
+     <updated>2014-11-17T00:00:00+08:00</updated>
+     <id>http://beiyuu.com/ndk</id>
+     <content type="html">&lt;h3&gt;遇到的问题&lt;/h3&gt;
+
+&lt;p&gt;https://developer.android.com/tools/sdk/ndk/index.html#Installing&lt;/p&gt;
+
+&lt;h3&gt;用GDB进行so调试&lt;/h3&gt;
+
+&lt;h2&gt;编译&lt;/h2&gt;
+
+&lt;ol&gt;
+&lt;li&gt;要有没有strip的so
+strip命令位置: toolchains/arm-linux-androideabi-4.6/prebuilt/linux-x86_64/arm-linux-androideabi/bin/strip 注意strip前要保留原来的so文件,以后调试时需要使用&lt;/li&gt;
+&lt;li&gt;其他: 用nm命令 可以列出so内的符号,可以用于查看so是否有符号,如 nm xx.so&lt;/li&gt;
+&lt;/ol&gt;
+
+
+&lt;h2&gt;GDB 调试so&lt;/h2&gt;
+
+&lt;p&gt;需要的文件:
+gdbserver 位置:android-ndk-r8b/prebuilt/android-arm/gdbserver/gdbserver
+gdb 位置:android-ndk-r8b/toolchains/arm-linux-androideabi-4.6/prebuilt/linux-x86/bin/arm-linux-androideabi-gdb
+步骤:&lt;/p&gt;
+
+&lt;ol&gt;
+&lt;li&gt;apk 打开调试开关, AndroidManifest.xml 中, application节点 加入 android:debuggable=&quot;true&quot;,&lt;/li&gt;
+&lt;li&gt;如果是root的机器,apk没有打开调试开关也可以进行调试,如果是已经root的机器,把gdbserver放到系统(手机)的目录下(可以随意放置,一般放到system/bin目录下方便输入命令)&lt;/li&gt;
+&lt;li&gt;如果是没有root的机器,需要把gdbserver打到apk的包里(放到lib目录下),这样安装apk的的时候会把gdbserver拷贝到/data/data/app名称/lib/gdbserver&lt;/li&gt;
+&lt;li&gt;启动apk,可以直接启动&lt;/li&gt;
+&lt;li&gt;用 adb shell 进行控制台,用ps命令查看app的进程id&lt;/li&gt;
+&lt;li&gt;如果是root机器,可以su后,直接用gdbserver attach ,命令行是 gdbserver :端口号 --attach pid 如 : su gdbserver :2345 --attach pid&lt;/li&gt;
+&lt;li&gt;如果是未root机器,只能用以下方式 run-as app名称 lib/gdbserver :端口号 --attach pid&lt;/li&gt;
+&lt;li&gt;在pc上运行adb forward tcp:端口号(指PC上的端口) tcp:端口号(手机上的端口) 建立端口映射&lt;/li&gt;
+&lt;li&gt;把/system/bin/app_process /system/bin/linker, /system/lib/libc.so 从手机上拷贝出来(可以用adb pull 命令),其他so文件也拷贝出来也行,我们假定拷贝的目录为$lib&lt;/li&gt;
+&lt;li&gt;&lt;p&gt;运行arm-linux-androideabi-gdb ,输入以下命令序列
+file $lib/app_process $lib目录中有从手机拷贝出来的app_process,linker和libc.so这些文件 ,如我放到了/home/qrf/android_ndk_debug/mydev目录下&lt;/p&gt;
+
+&lt;p&gt;set solib-absolute-prefix $nostriplib_dir $nostriplib_dir是存放了没有strip的so的目录,如 set solib-absolute-prefix /home/qrf/code/cmso&lt;/p&gt;
+
+&lt;p&gt;set solib-search-path $lib:$nostriplib_dir 如set solib-search-path /home/qrf/android_ndk_debug/mydev:/home/qrf/code/cmso&lt;/p&gt;
+
+&lt;p&gt;target remote :端口号 连上gdbserver&lt;/p&gt;
+
+&lt;p&gt;dir source 指定源码路径
+后面就是gdb调试的问题了,进入gdb调试界面可以用ctrl x + a 来切换到&lt;strong&gt;&lt;em&gt;文本模式&lt;/em&gt;&lt;/strong&gt;(可以查看源码), 如果要配合ddd前端, 用apt-get install ddd ,然后 用ddd --debugger arm-linux-androideabi-gdb 使用,但是ddd有时会不太灵光,还是直接使用gdb比较方便&lt;/p&gt;&lt;/li&gt;
+&lt;/ol&gt;
+
+
+&lt;p&gt;附一些常用的gdb命令:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;backtrace/bt    //列出当前线程堆栈
+
+thread apply all bt //列出所有线程调用堆栈
+
+thread 线程号//切换线程上下文
+
+ctrl x+a //切换到源码浏览窗口 ，再按ctrl x+a 切换回去
+
+ctrl c //中断当前运行
+
+c/continue //继续运行
+
+info sharedlibrary //列出so加载列表
+
+info threads //列出线程列表
+
+info locals //列出当前堆栈上的局部变量
+
+info breakpoints //列出断点
+
+print 变量名 //列出变量内容 
+
+print 变量名= //修改变量名的值
+
+b/break 源码文件名:行号 //下断点
+
+d/delete 断点id //删除断点
+
+f/frame 栈帧序号 //切换到指定的栈帧 如 f 0 顶层
+
+s/step //下一步，有函数调用会进入
+
+n/next //下一步，有函数调用不会进入
+
+fin/finish //返回到上层函数调用
+
+disable 断点id  //禁用断点
+
+enable 断点id  //启用断点
+
+disassemble/disas //查看汇编代码
+&lt;/code&gt;&lt;/pre&gt;
+</content>
+   </entry>
+   
+   <entry>
+     <title>git和SVN配合</title>
+     <link href="http://beiyuu.com/git-svn"/>
+     <updated>2014-11-16T00:00:00+08:00</updated>
+     <id>http://beiyuu.com/git-svn</id>
+     <content type="html">&lt;h3&gt;使用Git有什么方便的？&lt;/h3&gt;
+
+&lt;ul&gt;
+&lt;li&gt;把大修改点拆小提交记录。&lt;/li&gt;
+&lt;li&gt;随时更新服务器代码到本地，不影响当前工作环境。&lt;/li&gt;
+&lt;li&gt;连不上服务器时，也能正常工作。&lt;/li&gt;
+&lt;li&gt;数据分布式存放，数据丢失的可能性最小。&lt;/li&gt;
+&lt;/ul&gt;
+
+
+&lt;h3&gt;推荐读物 Pro Git&lt;/h3&gt;
+
+&lt;h3&gt;常用命令&lt;/h3&gt;
+
+&lt;table class=&quot;wiki&quot;&gt;
+&lt;tr&gt;&lt;td&gt;&lt;strong&gt;命令&lt;/strong&gt;&lt;/td&gt;&lt;td&gt;&lt;strong&gt;说明&lt;/strong&gt;
+&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;git svn clone -s http://svn.repo.url&lt;/td&gt;&lt;td&gt;从远程SVN服务器下拉所有代码变化到本地(SVN目录必须符合标准，有trunk, tags, branches，否则把-s选项去掉)
+&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;git svn fetch&lt;/td&gt;&lt;td&gt;从远程SVN服务器下拉代码变化到本地Git服务端
+&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;git svn dcommit&lt;/td&gt;&lt;td&gt;把本地Git服务端的代码变化，同步提交到远程SVN服务器
+&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;git branch&lt;/td&gt;&lt;td&gt;查看本地分支列表
+&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;git branch -a&lt;/td&gt;&lt;td&gt;查看所有分支列表
+&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;git branch -d branchName&lt;/td&gt;&lt;td&gt;删除本地分支
+&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;git branch -D branchName&lt;/td&gt;&lt;td&gt;强制删除本地分支
+&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;git checkout -b locBranchName remotes/branchName&lt;/td&gt;&lt;td&gt;从远程(其实就是本机的git服务端)分支创建一个本地分支，并将工作目录切换到这个本地分支
+&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;git checkout locBranchName&lt;/td&gt;&lt;td&gt;把工作目录切换到一个已存在的本地分支
+&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;git checkout *&lt;/td&gt;&lt;td&gt;把工作目录内没有提交的所有修改恢复原样，相当于svn的revert操作
+&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;git clean -n&lt;/td&gt;&lt;td&gt;查看有什么多余的文件可以清理的
+&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;git clean -f&lt;/td&gt;&lt;td&gt;清理多余的文件
+&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;git gui&lt;/td&gt;&lt;td&gt;git提供的一个图形界面工具，常用来提交代码
+&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;gitk&lt;/td&gt;&lt;td&gt;git的一个图形界面工具，常用来查看日志及变化
+&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;git rebase remotes/branchName&lt;/td&gt;&lt;td&gt;把远程(其实就是本机的git服务端)分支的最新变更合并到本地分支
+&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;git cherry-pick {SHA1-ID}&lt;/td&gt;&lt;td&gt;把指定SHA1 ID的修改点合并到当前本地分支
+&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;git diff&lt;/td&gt;&lt;td&gt;查看变化
+&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;git difftool -t meld -y&lt;/td&gt;&lt;td&gt;用meld查看变化
+&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;git mergetool -t meld -y&lt;/td&gt;&lt;td&gt;用meld合并解决冲突代码
+&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+
+
+
+</content>
+   </entry>
+   
+   <entry>
+     <title>关于java String的匹配问题</title>
+     <link href="http://beiyuu.com/sqlite-efficiency"/>
+     <updated>2014-11-15T00:00:00+08:00</updated>
+     <id>http://beiyuu.com/sqlite-efficiency</id>
+     <content type="html">&lt;h3&gt;遇到的问题&lt;/h3&gt;
+
+&lt;p&gt;这次在调程序性能的时候发现有多处的String匹配，加上各种云端开关，想到之前字符串匹配用到的KMP算法，所以打算采用KMP算法：&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;public class KMP {
+    public int kmpMatch(String s, String p){
+        int[] next = new int[s.length()];
+        int i,j;
+        i=0;
+        j=0;
+        getNext(p,next);
+        while(i&amp;lt;s.length()){
+            if(j==-1||s.charAt(i)==p.charAt(j)){
+                i++;
+                j++;
+            }else{
+                j=next[j]; // eliminate Trace Back
+            }
+            if(j==p.length()){
+                return i-p.length();
+            }
+        }
+        return -1;
+    }
+
+    private void getNext(String p, int[] next){
+        int j,k;
+        next[0]=-1;
+        j=0;
+        k=-1;
+        while(j&amp;lt;p.length()-1){
+            if(k==-1 || p.charAt(j)==p.charAt(k)){
+                j++;
+                k++;
+                next[j]=k;
+            }else{
+                k=next[k];
+            }
+        }
+    }
+}&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;但是发现，性能竟然降下去了。&lt;/p&gt;
+
+&lt;h3&gt;关于java的字符串匹配的问题&lt;/h3&gt;
+
+&lt;pre&gt;&lt;code&gt;我们之前的代码采用的jdk的**contains api**
+源码如下：
+![Alt text]( /images/android/2014_java_indexof.png &quot;Optional title&quot;)
+
+发现牛逼的jre源码竟然采用了最朴实的算法,我们知道KMP的时间复杂度是非常好的为o(n)
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;为何源码采用朴素算法,不采用KMP？在stackOverFlow上找到了一些蛛丝马迹:
+    KMP算法具有更好的性能，但实际上需要一点点的前面计算（产生的偏移量表）。IT也需要一个初始的内存分配，这也可能影响性能。
+    而且使用String的&lt;strong&gt;charAt &lt;/strong&gt;会对性能的造成损耗，这个需要注意！！！&lt;/p&gt;
+
+&lt;p&gt;此外，测试了了String的几个查找subString的API：&lt;/p&gt;
+
+&lt;ol&gt;
+&lt;li&gt;string.contains()&lt;/li&gt;
+&lt;li&gt;string.indexOf()&lt;/li&gt;
+&lt;li&gt;regular expression. it is something like string.matches(&quot;ja&quot;))&lt;/li&gt;
+&lt;/ol&gt;
+
+
+&lt;p&gt;性能 string.indexOf() &gt; string.contains() &gt; string.matches(&quot;ja&quot;))&lt;/p&gt;
+</content>
+   </entry>
+   
+   <entry>
+     <title>关于java String的匹配问题</title>
+     <link href="http://beiyuu.com/java-String"/>
+     <updated>2014-11-14T00:00:00+08:00</updated>
+     <id>http://beiyuu.com/java-String</id>
+     <content type="html">&lt;h3&gt;遇到的问题&lt;/h3&gt;
+
+&lt;p&gt;这次在调程序性能的时候发现有多处的String匹配，加上各种云端开关，想到之前字符串匹配用到的KMP算法，所以打算采用KMP算法：&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;public class KMP {
+    public int kmpMatch(String s, String p){
+        int[] next = new int[s.length()];
+        int i,j;
+        i=0;
+        j=0;
+        getNext(p,next);
+        while(i&amp;lt;s.length()){
+            if(j==-1||s.charAt(i)==p.charAt(j)){
+                i++;
+                j++;
+            }else{
+                j=next[j]; // eliminate Trace Back
+            }
+            if(j==p.length()){
+                return i-p.length();
+            }
+        }
+        return -1;
+    }
+
+    private void getNext(String p, int[] next){
+        int j,k;
+        next[0]=-1;
+        j=0;
+        k=-1;
+        while(j&amp;lt;p.length()-1){
+            if(k==-1 || p.charAt(j)==p.charAt(k)){
+                j++;
+                k++;
+                next[j]=k;
+            }else{
+                k=next[k];
+            }
+        }
+    }
+}&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;但是发现，性能竟然降下去了。&lt;/p&gt;
+
+&lt;h3&gt;关于java的字符串匹配的问题&lt;/h3&gt;
+
+&lt;pre&gt;&lt;code&gt;我们之前的代码采用的jdk的**contains api**
+源码如下：
+![Alt text]( /images/android/2014_java_indexof.png &quot;Optional title&quot;)
+
+发现牛逼的jre源码竟然采用了最朴实的算法,我们知道KMP的时间复杂度是非常好的为o(n)
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;为何源码采用朴素算法,不采用KMP？在stackOverFlow上找到了一些蛛丝马迹:
+    KMP算法具有更好的性能，但实际上需要一点点的前面计算（产生的偏移量表）。IT也需要一个初始的内存分配，这也可能影响性能。
+    而且使用String的&lt;strong&gt;charAt &lt;/strong&gt;会对性能的造成损耗，这个需要注意！！！&lt;/p&gt;
+
+&lt;p&gt;此外，测试了了String的几个查找subString的API：&lt;/p&gt;
+
+&lt;ol&gt;
+&lt;li&gt;string.contains()&lt;/li&gt;
+&lt;li&gt;string.indexOf()&lt;/li&gt;
+&lt;li&gt;regular expression. it is something like string.matches(&quot;ja&quot;))&lt;/li&gt;
+&lt;/ol&gt;
+
+
+&lt;p&gt;性能 string.indexOf() &gt; string.contains() &gt; string.matches(&quot;ja&quot;))&lt;/p&gt;
+</content>
+   </entry>
+   
+   <entry>
+     <title>ant打包策略</title>
+     <link href="http://beiyuu.com/andoird-ant"/>
+     <updated>2014-10-17T00:00:00+08:00</updated>
+     <id>http://beiyuu.com/andoird-ant</id>
+     <content type="html">&lt;h3&gt;操作流程&lt;/h3&gt;
+
+&lt;p&gt;1.准备必要工具。
+    - ​python2.X(注意，不能用3.X版本)
+    - apache-ant-1.8.4(注意，一定要此版本)
+    - android sdk
+2.把python路径(如：c:\Python25)，ant路径(如d:\apache-ant-1.8.4\bin),sdk工具路径(如d:\android-sdk\build-tools\18.1.1)加入PATH环境变量。
+3.在CleanMaster工程所在路径，用python调用build/changebuildXXX/before.py脚本修改工程环境。(如果你想打国内版的包，就是changebuild0，如果想打国际版的包，就是changebuil1) 参看：如何构造一个指定包版本的工程代码环境
+4.修改local.properties中配置的SDK路径。
+5.修改proguard.cfg中-libraryjars开头的三行配置路径。&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;-libraryjars &amp;#39;D:\Program Files\Java\jre6\lib\rt.jar&amp;#39;
+-libraryjars &amp;#39;D:\install\Android\android-sdk\platforms\android-17\android.jar&amp;#39;
+-libraryjars &amp;#39;D:\install\Android\android-sdk\platforms\android-17\data\layoutlib.jar&amp;#39;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;6.修改custom_rules_commons.xml中配置的python路径。
+7.在CleanMaster工程所在路径，执行ant clean。
+8.在CleanMaster工程所在路径，执行ant cmrelease。构建成功后，安装包在bin/channel路径下。&lt;/p&gt;
+
+&lt;h3&gt;FAQ&lt;/h3&gt;
+
+&lt;p&gt;1.如果出现下述报错，就是lint检查失败了，没有生成结果文件。
+&lt;img src=&quot;/images/android/android_ant.jpg&quot; title=&quot;Optional title&quot; alt=&quot;Alt text&quot; /&gt;&lt;/p&gt;
+</content>
+   </entry>
+   
+   <entry>
+     <title>android的ListView常见问题</title>
+     <link href="http://beiyuu.com/android-diandi"/>
+     <updated>2014-10-16T00:00:00+08:00</updated>
+     <id>http://beiyuu.com/android-diandi</id>
+     <content type="html">&lt;h3&gt;android listView addHeaderView的问题&lt;/h3&gt;
+
+&lt;pre&gt;&lt;code&gt;隐藏headerView的思路:使用View.GONE属性隐藏
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;&amp;lt;LinearLayout android:id=&amp;quot;@+id/item_root&amp;quot;
+    android:layout_width=&amp;quot;fill_parent&amp;quot;
+    android:layout_height=&amp;quot;50dip&amp;quot;
+    android:orientation=&amp;quot;vertical&amp;quot; &amp;gt;
+&amp;lt;TextView  android:id=&amp;quot;@+id/tv_1&amp;quot; /&amp;gt;
+&amp;lt;TextView  android:id=&amp;quot;@+id/tv_2&amp;quot; /&amp;gt;
+&amp;lt;/LinearLayout &amp;gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;pre&gt;&lt;code&gt;此时，有如下逻辑：
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;ListView listView = xxxx;
+  listView.addHearderView(item_root);
+  listView.setAdapter(adapter);
+  adapter.add(xxxxx);添加数据
+  item_root.setVisibility(View.GONE);&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;pre&gt;&lt;code&gt;实测发现使用View.GONE方法后，头部依然会占用相应的高度无法隐藏。
+原因是：如果直接修改根布局的属性，就会造成headerView的显示有问题。
+所以修改成操作item_root里头的View显示就好了。
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;h3&gt;添加HeaderView之后尺寸布局被忽略&lt;/h3&gt;
+
+&lt;pre&gt;&lt;code&gt;通常添加头部的方法是 
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;LayoutInflater lif = (LayoutInflater) getSystemService(Context.LAYOUT_INFLATER_SERVICE);
+View headerView = lif.inflate(R.layout.header, null);
+mListView.addHeaderView(headerView);&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;原因：
+lif.inflate(R.layout.header, null)丢失了XML布局中根View的LayoutParam，应该使用的是&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;lif.inflate(R.layout.header, mListView, false);&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;h3&gt;添加HeaderView之后导致OnItemClickListener的position移位&lt;/h3&gt;
+
+&lt;p&gt;OnItemClickListener接口的方法：&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;void onItemClick(AdapterView&amp;lt;?&amp;gt; parent, View view, int position, long id)&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;position通常是从0开始的，但是添加了HeaderView之后，position也会将HeaderView的数目计算进去。
+几个解决办法：
+1.手动计算真实的position位置：&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;final headerCount = 1;
+mListView.setOnItemClickListener(new OnItemClickListener() {
+    @Override
+    public void onItemClick(AdapterView&amp;lt;?&amp;gt; parent, View view,
+            int position, long id) {
+        Item item = myAdapter.getItem(position - headerCount);
+    }
+});&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;2.其实上面的步骤ListView已经为我们提供了，所以可以改写为：&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;mListView.setOnItemClickListener(new OnItemClickListener() {
+    @Override
+    public void onItemClick(AdapterView&amp;lt;?&amp;gt; parent, View view,
+            int position, long id) {
+        Item item = parent.getAdapter().getItem(position);
+    }
+});&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;原因在源码中有比较清晰的解释：
+当有headerView被添加时，实际传递给ListView的adapter被包装，parent.getAdapter()返回真实被ListView使用的Adapter（HeaderViewListAdapter），HeaderViewListAdapter的getItem(int)方法处理了position的问题。&lt;/p&gt;
+</content>
+   </entry>
+   
+   <entry>
+     <title>androidL预言</title>
+     <link href="http://beiyuu.com/android_L"/>
+     <updated>2014-09-30T00:00:00+08:00</updated>
+     <id>http://beiyuu.com/android_L</id>
+     <content type="html">&lt;h2&gt;64bit / ART (重要)&lt;/h2&gt;
+
+&lt;ul&gt;
+&lt;li&gt;Android 4.4 之下ART为可选Runtime, 默认仍然为Delivik, AndroidL默认Runtime为ART&lt;/li&gt;
+&lt;li&gt;支持ARM, x86 and MIPS processors&lt;/li&gt;
+&lt;li&gt;兼容 64-bit CPU&lt;/li&gt;
+&lt;li&gt;x2 faster&lt;/li&gt;
+&lt;li&gt;多数应用不需要更改就可以在ART上运行&lt;/li&gt;
+&lt;li&gt;ART最终会使用(目前不是) Compacting garbage collector, 对象会在GC后改变地址, 所以JNI代码可能会有兼容问题. (可以使用工具检查: ​http://android-developers.blogspot.hk/2011/07/debugging-android-jni-with-checkjni.html)&lt;/li&gt;
+&lt;li&gt;Delivik中Java的Stack和Native的Stack是分开的, ART则是共用的.&lt;/li&gt;
+&lt;li&gt;有些程序可能依赖/system/framework, /data/dalvik-cache下的odex文件, 现在这些文件会变成ELF格式的, 所以最好不要干这种事情.&lt;/li&gt;
+&lt;li&gt;ART编译器可以十分可靠的处理标准JAVA字节码,但是不见得能很好的处理Delivik字节码,尤其是经过混淆/优化的字节码可能会遭遇ART编译失败.&lt;/li&gt;
+&lt;li&gt;System.gc() 不再很有效, 用多了反而会有害, 总之不能依靠这个, 可以通过判断当前的Runtime是不是ART来决定是否调用gc()&lt;/li&gt;
+&lt;li&gt;部分JNI函数开始抛异常了(所谓的更加严格的JNI规范, 可以使用CheckJNI工具进行检查)&lt;/li&gt;
+&lt;/ul&gt;
+
+
+&lt;h3&gt;通知栏&lt;/h3&gt;
+
+&lt;ul&gt;
+&lt;li&gt;UI风格发生变化&lt;/li&gt;
+&lt;li&gt;Head-off通知栏, 以悬浮窗的模式显示在屏幕顶部&lt;/li&gt;
+&lt;li&gt;使用 Ringtone/ MediaPlayer / Vibrator 发出声音的Notification应该把代码去掉, 或者使用 Notification.Builder来设置声音和震动.&lt;/li&gt;
+&lt;/ul&gt;
+
+
+&lt;h3&gt;ActivityManager.getRecentTasks() (重要)&lt;/h3&gt;
+
+&lt;ul&gt;
+&lt;li&gt;出于隐私问题, 这个API已经标记为失效, 出于兼容性考虑, 仍然会返回部分数据.&lt;/li&gt;
+&lt;li&gt;应用可以通过android.app.ActivityManager?.getAppTasks() 检索自己的Task&lt;/li&gt;
+&lt;/ul&gt;
+
+
+&lt;h3&gt;UI&lt;/h3&gt;
+
+&lt;ul&gt;
+&lt;li&gt;View shadows (原来只是支持x/y方向的shadow, 现在支持z方向, 很多情况下阴影不需要做到切图里了)&lt;/li&gt;
+&lt;li&gt;RecyclerView (一个更高级的ListView, 在性能/内存使用上有优化)&lt;/li&gt;
+&lt;li&gt;CardView&lt;/li&gt;
+&lt;/ul&gt;
+
+
+&lt;h3&gt;Lockscreen Notifications&lt;/h3&gt;
+
+&lt;ul&gt;
+&lt;li&gt;VISIBILITY_PRIVATE: 显示通知的基本信息, 比如图标,内容不展示&lt;/li&gt;
+&lt;li&gt;VISIBILITY_PUBLIC: 所有通知内容都显示&lt;/li&gt;
+&lt;li&gt;VISIBILITY_SECRET: 啥都不显示
+锁屏时显示通知.
+&lt;img src=&quot;/images/android/androidL_1.png&quot; title=&quot;Optional title&quot; alt=&quot;Alt text&quot; /&gt;
+
+&lt;h3&gt;New Recent App View&lt;/h3&gt;
+
+&lt;h3&gt;Improved Graphics&lt;/h3&gt;&lt;/li&gt;
+&lt;li&gt;支持OpenGL ES 3.1&lt;/li&gt;
+&lt;li&gt;Android Extension Pack&lt;/li&gt;
+&lt;/ul&gt;
+
+
+&lt;h3&gt;Concurrent documents and activities in the Recents screen&lt;/h3&gt;
+
+&lt;ul&gt;
+&lt;li&gt;统一个应用可以有多个任务并存, 可以相互切换.&lt;/li&gt;
+&lt;/ul&gt;
+
+
+&lt;h3&gt;存储&lt;/h3&gt;
+
+&lt;ul&gt;
+&lt;li&gt;DocumentsProvider : 允许用户选中目录, 对整个目录以及子目录设置读写权限(不需要用户逐一确认)&lt;/li&gt;
+&lt;li&gt;android.content.Context.getExternalMediaDirs() 提供了一个新的存储APP相关的媒体文件的机制, 可以帮助MediaStore更快的索引媒体文件. (重要)&lt;/li&gt;
+&lt;/ul&gt;
+
+
+&lt;h3&gt;无线网络&lt;/h3&gt;
+
+&lt;ul&gt;
+&lt;li&gt;多个网络连接并存 (重要)&lt;/li&gt;
+&lt;/ul&gt;
+
+
+&lt;h3&gt;Bluetooth 4.1&lt;/h3&gt;
+
+&lt;p&gt;蓝牙4.3 / Bluetooth Low Energy
+Volta / Battery Histrian
+JobScheduler?
+更加详细的应用耗电信息, 提供了分析工具, 对APP优化应该有很大帮助&lt;/p&gt;
+
+&lt;h3&gt;Sec. &amp;amp; Privacy&lt;/h3&gt;
+
+&lt;h3&gt;WebView&lt;/h3&gt;
+
+&lt;p&gt;新增支持 :&lt;/p&gt;
+
+&lt;p&gt;WebAudio
+- WebGL
+- WebRTC&lt;/p&gt;
+
+&lt;h3&gt;Google play service , system update&lt;/h3&gt;
+
+&lt;ul&gt;
+&lt;li&gt;可以通过Google play下载漏洞补丁
+
+&lt;h3&gt;NFC&lt;/h3&gt;&lt;/li&gt;
+&lt;li&gt;Android Beam加入到分享菜单中
+
+&lt;h3&gt;API示例&lt;/h3&gt;
+
+&lt;h3&gt;参考&lt;/h3&gt;&lt;/li&gt;
+&lt;li&gt;​http://developer.android.com/preview/api-overview.html&lt;/li&gt;
+&lt;li&gt;​http://developer.android.com/preview/reference.html&lt;/li&gt;
+&lt;li&gt;​http://developer.android.com/preview/material/index.html&lt;/li&gt;
+&lt;/ul&gt;
+
+
+&lt;p&gt;PNG压缩工具
+在线： ​https://tinypng.com/ 目前可用host（54.194.15.171 tinypng.com）&lt;/p&gt;
+
+&lt;p&gt;工具：PNGGauntlet ​http://www.downxia.com/downinfo/25032.html&lt;/p&gt;
+
+&lt;h2&gt;#&lt;/h2&gt;
+</content>
+   </entry>
+   
+   <entry>
+     <title>android辅助工具</title>
+     <link href="http://beiyuu.com/android-lint"/>
+     <updated>2014-09-25T00:00:00+08:00</updated>
+     <id>http://beiyuu.com/android-lint</id>
+     <content type="html">&lt;h2&gt;android lint工具&lt;/h2&gt;
+
+&lt;h3&gt;使用了高版本的API&lt;/h3&gt;
+
+&lt;p&gt;在开发中,常常会不小心用到了高版本的API, 这样会导致程序在低于API版本设备上崩溃. 这样的崩溃无法被catch&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;# 在工程目录下执行
+$ lint --check NewApi .&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;结果&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;src/com/cleanmaster/security/scan/ui/dialog/SecurityVirusDialog.java:94: Error: Call requires API level 11 (current min is 8): android.widget.TextView#setAlpha [NewApi]
+   subtitleTv.setAlpha(0.75f);
+              ~~~~~~~~
+src/com/cleanmaster/ui/widget/ShareBar.java:25: Error: Call requires API level 11 (current min is 8): new android.widget.LinearLayout [NewApi]
+        super(context, attrs, defStyle);
+        ~~~~~&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;然而需要注意, Lint输出的这些信息并不一定真正会出问题. 所以你需要看代码确定一下:&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;public void show(
+
+         if (SDKUtils.isAboveSDK14()) {
+             ///&amp;lt; 4.0以下没有这个方法，所以只在4.0及4.0以上增加以下alpha值处理
+             subtitleTv.setAlpha(0.75f);
+             }&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+
+</content>
+   </entry>
+   
+   <entry>
+     <title>github 和jekyll方法</title>
+     <link href="http://beiyuu.com/first-commit"/>
+     <updated>2014-09-21T00:00:00+08:00</updated>
+     <id>http://beiyuu.com/first-commit</id>
+     <content type="html">&lt;h3&gt;github常用命令&lt;/h3&gt;
+
+&lt;ul&gt;
+    &lt;li&gt;git clone git@github.com:username/xxxxxx.github.com.git//本地如果无远程代码，先做这步，不然就忽略&lt;/li&gt;
+    &lt;li&gt;git pull origin master //先同步远程文件，后面的参数会自动连接你远程的文件/li&gt;
+    &lt;li&gt;git status //查看本地自己修改了多少文件&lt;/li&gt;
+    &lt;li&gt;git添加文件:git add .&lt;/li&gt;
+    &lt;li&gt;git提交文件: git commit -m &quot;first commit&quot;&lt;/li&gt;
+    &lt;li&gt;git push origin master //更新到远程服务器上&lt;/li&gt;
+&lt;/ul&gt;
+
+
+&lt;h3&gt;jekyll常用命令&lt;/h3&gt;
+
+&lt;ul&gt;
+    &lt;li&gt;jekyll打开本地服务jekyll serve&lt;/li&gt;
+    &lt;li&gt;关于jekyll的 Address already in use - bind(2):&lt;/br&gt;
+        先采用lsof -wni tcp:4000 或者使用 ps aux |grep &quot;jek&quot;&lt;/br&gt;
+        再采用kill -9 PID命令
+        &lt;/li&gt;
+    
+&lt;/ul&gt;
+
+
+&lt;h3&gt;常用adb和adb shell命令&lt;/h3&gt;
+
+&lt;ul&gt;
+    &lt;li&gt;windows平台查看端口占用:netstat -ano | findstr &quot;5037&quot; &lt;/li&gt;
+    &lt;li&gt;查看手机服务列表:adb shell service list&lt;/li&gt;
+    &lt;li&gt;查看安装列表:adb shell pm list packages&lt;/li&gt;
+    &lt;li&gt;查看安装位置:adb shell pm path pkg_name&lt;/li&gt;
+    &lt;li&gt;推送信息:adb pull pkg_path&lt;/li&gt;
+    &lt;li&gt;&lt;/li&gt;
+    &lt;li&gt;&lt;/li&gt;
+    &lt;li&gt;&lt;/li&gt;
+    
+&lt;/ul&gt;
+
+
+&lt;h3&gt;vim常用命令&lt;/h3&gt;
+
+&lt;ul&gt;
+    &lt;li&gt;复制单行:yy&lt;/li&gt;
+    &lt;li&gt;复制单个单词:yw&lt;/li&gt;
+    &lt;li&gt;粘贴单行:p&lt;/li&gt;
+    &lt;li&gt;删除单行:dd &lt;/li&gt;
+    &lt;li&gt;删除单个单词:diw&lt;/li&gt;
+&lt;/ul&gt;
+
+
+&lt;h3&gt;shell常用命令&lt;/h3&gt;
+
+&lt;ul&gt;
+    &lt;li&gt;&lt;/li&gt;
+    &lt;li&gt;&lt;/li&gt;
+    &lt;li&gt;&lt;/li&gt;
+    &lt;li&gt;&lt;/li&gt;
+&lt;/ul&gt;
+
+
+&lt;p&gt;linux上进程有5种状态:
+1. 运行(正在运行或在运行队列中等待)&lt;/br&gt;
+2. 中断(休眠中, 受阻, 在等待某个条件的形成或接受到信号)&lt;/br&gt;
+3. 不可中断(收到信号不唤醒和不可运行, 进程必须等待直到有中断发生)&lt;/br&gt;
+4. 僵死(进程已终止, 但进程描述符存在, 直到父进程调用wait4()系统调用后释放)&lt;/br&gt;
+5. 停止(进程收到SIGSTOP, SIGSTP, SIGTIN, SIGTOU信号后停止运行运行)&lt;/br&gt;&lt;/p&gt;
+
+&lt;p&gt;1）ps a 显示现行终端机下的所有程序，包括其他用户的程序。&lt;/br&gt;
+2）ps -A   显示所有程序。&lt;/br&gt;
+3）ps c    列出程序时，显示每个程序真正的指令名称，而不包含路径，参数或常驻服务的标示。&lt;/br&gt;
+4）ps -e   此参数的效果和指定&quot;A&quot;参数相同。&lt;/br&gt;
+5）ps e    列出程序时，显示每个程序所使用的环境变量。&lt;/br&gt;
+6）ps f    用ASCII字符显示树状结构，表达程序间的相互关系。&lt;/br&gt;
+7）ps -H   显示树状结构，表示程序间的相互关系。&lt;/br&gt;
+8）ps -N   显示所有的程序，除了执行ps指令终端机下的程序之外。&lt;/br&gt;
+9）ps s    采用程序信号的格式显示程序状况。&lt;/br&gt;
+10）ps S   列出程序时，包括已中断的子程序资料。&lt;/br&gt;
+11）ps -t  &amp;lt;终端机编号&gt; 　指定终端机编号，并列出属于该终端机的程序的状况。&lt;/br&gt;
+12）ps u 　以用户为主的格式来显示程序状况。&lt;/br&gt;
+13）ps x 　显示所有程序，不以终端机来区分。&lt;/br&gt;
+14）ps -l  較長,較詳細的顯示該PID的信息  &lt;/br&gt;&lt;/p&gt;
+</content>
+   </entry>
+   
+ 
+</feed>
