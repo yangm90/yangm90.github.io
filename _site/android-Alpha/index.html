@@ -5,7 +5,7 @@
     * Author:        ym 
     -->
     <meta charset="utf-8" />
-    <title>随内容滚动隐藏的工具栏 | Yangming.com</title>
+    <title>android中如何高效的使用alpha属性 | Yangming.com</title>
     <meta name="author" content="ym" />
     <meta name="renderer" content="webkit">
     <meta name="description" content="ym's Blog" />
@@ -44,27 +44,88 @@
 
 <div id="content">
     <div class="entry">
-        <h1 class="entry-title"><a href="/auto-edit-bar" title="随内容滚动隐藏的工具栏">随内容滚动隐藏的工具栏</a></h1>
-        <p class="entry-date">2012-12-27</p>
-        <p>最先在<a href="https://itunes.apple.com/us/app/google+/id447119634?mt=8">Google+</a>的APP上看到这种交互细节，而后在<a href="http://www.meilishuo.com/welcome">美丽说</a>的新版上也看到了，上图：</p>
+        <h1 class="entry-title"><a href="/android-Alpha" title="android中如何高效的使用alpha属性">android中如何高效的使用alpha属性</a></h1>
+        <p class="entry-date">2014-12-07</p>
+        <h2>#</h2>
 
-<p><img src="/images/other/auto-edit-bar.jpg" alt="Auto Edit Bar" /></p>
+<p>Alpha是图形界面开发中常用的特效，通常我们会使用以下代码来实现Alpha特效：</p>
 
-<p>图中画蓝色线框的部分既是。打开APP，下面的工具栏部分是显示的，当手指滑动内容，如果是向下浏览更多内容，工具栏自动收起，如果向上回滚，工具栏又会显示。</p>
-
-<p>好处显而易见，当APP认为你在浏览，收起留出更多的屏幕空间，不遮挡、影响内容的显示，需要时再出现。</p>
-
-<p>起初看到这个交互，还有些不习惯，体会到他的优势之后，顿时又觉得不支持这样的APP实在太out。</p>
-
-<p>Google+和美丽说还有些不同的细节：</p>
-
-<ul>
-    <li>Google+是在手指动作触发刚开始时就起效，而美丽说做在了手指滑动之后，因为有个缓冲时间，所以略感迟钝。</li>
-    <li>美丽说在工具栏收起之后，留有一个小按钮，其实当用户熟悉这个交互后，略显多余。</li>
-</ul>
+<div class="highlight"><pre><code class="language-java" data-lang="java">view.setAlpha(0.5f);
+    View.ALPHA.set(view, 0.5f);
+    ObjectAnimator.ofFloat(view, &quot;alpha&quot;, 0.5f).start();
+    view.animate().alpha(0.5f).start();
+    view.setAnimation(new AlphaAnimation(1.0f, 0.5f));</code></pre></div>
 
 
+<p>其效果都等同于：</p>
 
+<div class="highlight"><pre><code class="language-java" data-lang="java">canvas.saveLayer(l, r, t, b, 127, Canvas.CLIP_TO_LAYER_SAVE_FLAG);</code></pre></div>
+
+
+<p>所以常见的alpha特效是通过将图像绘制到offscreen buffer中然后显示出来，这样的操作是非常消耗资源的，甚至可能导致性能问题，在开发过程中我们可以通过其他方式避免创建offsreen buffer。</p>
+
+<h3>TextView</h3>
+
+<p>对于TextView我们通常需要文字透明效果，而不是View本身透明，所以，直接设置带有alpha值的TextColor是比较高效的方式。</p>
+
+<div class="highlight"><pre><code class="language-java" data-lang="java">// Not this
+    textView.setAlpha(alpha);
+    
+    // 以下方式可以避免创建 offscreen buffer
+    int newTextColor = (int) (0xFF * alpha) &lt;&lt; 24 | baseTextColor &amp; 0xFFFFFF;
+    textView.setTextColor(newTextColor);</code></pre></div>
+
+
+<h3>ImageView</h3>
+
+<p>同样的对于只具有src image的ImageView，直接调用setImageAlpha()方法更为合理。</p>
+
+<div class="highlight"><pre><code class="language-java" data-lang="java">// Not this, setAlpha方法由View继承而来，性能不佳
+    imageView.setAlpha(0.5f);
+
+    // 使用以下方式时，ImageView会在绘制图片时单独为图片指定Alpha
+    // 可以避免创建 offScreenBuffer
+    imageView.setImageAlpha((int) alpha * 255);</code></pre></div>
+
+
+<h3>CustomView</h3>
+
+<p>类似的，自定义控件时，应该直接去设置paint的alpha。</p>
+
+<div class="highlight"><pre><code class="language-java" data-lang="java">// Not this
+    customView.setAlpha(alpha);
+
+    // But this
+    paint.setAlpha((int) alpha * 255);
+    canvas.draw*(..., paint);</code></pre></div>
+
+
+<p>同时Android提供了hasOverlappingRendering()接口，通过重写该接口可以告知系统当前View是否存在内容重叠的情况，帮助系统优化绘制流程，原理是这样的：对于有重叠内容的View，系统简单粗暴的使用 offscreen buffer来协助处理。当告知系统该View无重叠内容时，系统会分别使用合适的alpha值绘制每一层。</p>
+
+<div class="highlight"><pre><code class="language-java" data-lang="java">/**
+ * Returns whether this View has content which overlaps. This function, intended to be
+ * overridden by specific View types, is an optimization when alpha is set on a view. If
+ * rendering overlaps in a view with alpha &lt; 1, that view is drawn to an offscreen buffer
+ * and then composited it into place, which can be expensive. If the view has no overlapping
+ * rendering, the view can draw each primitive with the appropriate alpha value directly.
+ * An example of overlapping rendering is a TextView with a background image, such as a
+ * Button. An example of non-overlapping rendering is a TextView with no background, or
+ * an ImageView with only the foreground image. The default implementation returns true;
+ * subclasses should override if they have cases which can be optimized.
+ *
+ * @return true if the content in this view might overlap, false otherwise.
+ */
+public boolean hasOverlappingRendering() {
+    return true;
+}</code></pre></div>
+
+
+<p>最后引用Chet Haase的一句话作为总结</p>
+
+<div class="highlight"><pre><code class="language-java" data-lang="java">“You know what your view is doing, so do the right thing for your situation.”</code></pre></div>
+
+
+<p>http://blog.csdn.net/guolin_blog/article/details/16330267</p>
 
 
         <div id="disqus_container">

@@ -4,13 +4,1135 @@
    <title>Yangming.com</title>
    <link href="http://yangm90.github.io/Blog//atom.xml" rel="self" type="application/atom+xml"/>
    <link href="http://yangm90.github.io/Blog/" rel="alternate" type="text/html" />
-   <updated>2014-12-07T22:44:27+08:00</updated>
+   <updated>2015-01-10T17:04:34+08:00</updated>
    <id>http://yangm90.github.io/Blog/</id>
    <author>
      <name></name>
      <email></email>
    </author>
 
+   
+   <entry>
+     <title>Android</title>
+     <link href="http://beiyuu.com/AndroidTouch1"/>
+     <updated>2015-01-08T00:00:00+08:00</updated>
+     <id>http://beiyuu.com/AndroidTouch1</id>
+     <content type="html">&lt;p&gt;上次分析了touch事件如何传到我们的View上面了，这次分析下View是如何做分发的.
+从最基本的View层次分析&lt;/p&gt;
+
+&lt;h3&gt;View的事件分发&lt;/h3&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;/**
+     * Pass the touch screen motion event down to the target view, or this
+     * view if it is the target.
+     *
+     * @param event The motion event to be dispatched.
+     * @return True if the event was handled by the view, false otherwise.
+     */
+    public boolean dispatchTouchEvent(MotionEvent event) {
+        if (mInputEventConsistencyVerifier != null) {
+            mInputEventConsistencyVerifier.onTouchEvent(event, 0);
+        }
+
+        if (onFilterTouchEventForSecurity(event)) {
+            //noinspection SimplifiableIfStatement
+            ListenerInfo li = mListenerInfo;
+            if (li != null &amp;amp;&amp;amp; li.mOnTouchListener != null &amp;amp;&amp;amp; (mViewFlags &amp;amp; ENABLED_MASK) == ENABLED
+                    &amp;amp;&amp;amp; li.mOnTouchListener.onTouch(this, event)) {
+                return true;
+            }
+
+            if (onTouchEvent(event)) {
+                return true;
+            }
+        }
+
+        if (mInputEventConsistencyVerifier != null) {
+            mInputEventConsistencyVerifier.onUnhandledEvent(event, 0);
+        }
+        return false;
+    }&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;最先调用的是onTouch事件,如果onTouch返回True,则直接返回了,在分析下onTouchEvent发生了什么事情:&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;/**
+     * Implement this method to handle touch screen motion events.
+     *
+     * @param event The motion event.
+     * @return True if the event was handled, false otherwise.
+     */
+    public boolean onTouchEvent(MotionEvent event) {
+        final int viewFlags = mViewFlags;
+
+        if ((viewFlags &amp;amp; ENABLED_MASK) == DISABLED) {
+            if (event.getAction() == MotionEvent.ACTION_UP &amp;amp;&amp;amp; (mPrivateFlags &amp;amp; PFLAG_PRESSED) != 0) {
+                setPressed(false);
+            }
+            // A disabled view that is clickable still consumes the touch
+            // events, it just doesn&amp;#39;t respond to them.
+            return (((viewFlags &amp;amp; CLICKABLE) == CLICKABLE ||
+                    (viewFlags &amp;amp; LONG_CLICKABLE) == LONG_CLICKABLE));
+        }
+        if (mTouchDelegate != null) {
+            if (mTouchDelegate.onTouchEvent(event)) {
+                return true;
+            }
+        }
+        if (((viewFlags &amp;amp; CLICKABLE) == CLICKABLE ||
+                (viewFlags &amp;amp; LONG_CLICKABLE) == LONG_CLICKABLE)) {
+            switch (event.getAction()) {
+                case MotionEvent.ACTION_UP:
+                    boolean prepressed = (mPrivateFlags &amp;amp; PFLAG_PREPRESSED) != 0;
+                    if ((mPrivateFlags &amp;amp; PFLAG_PRESSED) != 0 || prepressed) {
+                        // take focus if we don&amp;#39;t have it already and we should in
+                        // touch mode.
+                        boolean focusTaken = false;
+                        if (isFocusable() &amp;amp;&amp;amp; isFocusableInTouchMode() &amp;amp;&amp;amp; !isFocused()) {
+                            focusTaken = requestFocus();
+                        }
+
+                        if (prepressed) {
+                            // The button is being released before we actually
+                            // showed it as pressed.  Make it show the pressed
+                            // state now (before scheduling the click) to ensure
+                            // the user sees it.
+                            setPressed(true);
+                       }
+
+                        if (!mHasPerformedLongPress) {
+                            // This is a tap, so remove the longpress check
+                            removeLongPressCallback();
+
+                            // Only perform take click actions if we were in the pressed state
+                            if (!focusTaken) {
+                                // Use a Runnable and post this rather than calling
+                                // performClick directly. This lets other visual state
+                                // of the view update before click actions start.
+                                if (mPerformClick == null) {
+                                    mPerformClick = new PerformClick();
+                                }
+                                if (!post(mPerformClick)) {
+                                    performClick();
+                                }
+                            }
+                        }
+
+                        if (mUnsetPressedState == null) {
+                            mUnsetPressedState = new UnsetPressedState();
+                        }
+
+                        if (prepressed) {
+                            postDelayed(mUnsetPressedState,
+                                    ViewConfiguration.getPressedStateDuration());
+                        } else if (!post(mUnsetPressedState)) {
+                            // If the post failed, unpress right now
+                            mUnsetPressedState.run();
+                        }
+                        removeTapCallback();
+                    }
+                    break;
+
+                case MotionEvent.ACTION_DOWN:
+                    mHasPerformedLongPress = false;
+
+                    if (performButtonActionOnTouchDown(event)) {
+                        break;
+                    }
+
+                    // Walk up the hierarchy to determine if we&amp;#39;re inside a scrolling container.
+                    boolean isInScrollingContainer = isInScrollingContainer();
+
+                    // For views inside a scrolling container, delay the pressed feedback for
+                    // a short period in case this is a scroll.
+                    if (isInScrollingContainer) {
+                        mPrivateFlags |= PFLAG_PREPRESSED;
+                        if (mPendingCheckForTap == null) {
+                            mPendingCheckForTap = new CheckForTap();
+                        }
+                        postDelayed(mPendingCheckForTap, ViewConfiguration.getTapTimeout());
+                    } else {
+                        // Not inside a scrolling container, so show the feedback right away
+                        setPressed(true);
+                        checkForLongClick(0);
+                    }
+                    break;
+
+                case MotionEvent.ACTION_CANCEL:
+                    setPressed(false);
+                    removeTapCallback();
+                    removeLongPressCallback();
+                    break;
+
+                case MotionEvent.ACTION_MOVE:
+                    final int x = (int) event.getX();
+                    final int y = (int) event.getY();
+
+                    // Be lenient about moving outside of buttons
+                    if (!pointInView(x, y, mTouchSlop)) {
+                        // Outside button
+                        removeTapCallback();
+                        if ((mPrivateFlags &amp;amp; PFLAG_PRESSED) != 0) {
+                            // Remove any future long press/tap checks
+                            removeLongPressCallback();
+
+                            setPressed(false);
+                        }
+                    }
+                    break;
+            }
+            return true;
+        }
+
+        return false;
+    }&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;这里值得注意的就是两个点:
+1. onclick事件是在MotionEvent.ACTION_UP的时候返回的，是在onTouch事件之后
+2. onTouchEvent返回值为True，才能接受到以后的事件，如果返回false则收不到。&lt;/p&gt;
+
+&lt;h3&gt;ViewGroup的事件分发&lt;/h3&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;/**
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean dispatchTouchEvent(MotionEvent ev) {
+        if (mInputEventConsistencyVerifier != null) {
+            mInputEventConsistencyVerifier.onTouchEvent(ev, 1);
+        }
+
+        boolean handled = false;
+        if (onFilterTouchEventForSecurity(ev)) {
+            final int action = ev.getAction();
+            final int actionMasked = action &amp;amp; MotionEvent.ACTION_MASK;
+
+            // Handle an initial down.
+            if (actionMasked == MotionEvent.ACTION_DOWN) {
+                // Throw away all previous state when starting a new touch gesture.
+                // The framework may have dropped the up or cancel event for the previous gesture
+                // due to an app switch, ANR, or some other state change.
+                cancelAndClearTouchTargets(ev);
+                resetTouchState();
+            }
+
+            // Check for interception.
+            final boolean intercepted;
+            if (actionMasked == MotionEvent.ACTION_DOWN
+                    || mFirstTouchTarget != null) {
+                final boolean disallowIntercept = (mGroupFlags &amp;amp; FLAG_DISALLOW_INTERCEPT) != 0;
+                if (!disallowIntercept) {
+                    intercepted = onInterceptTouchEvent(ev);
+                    ev.setAction(action); // restore action in case it was changed
+                } else {
+                    intercepted = false;
+                }
+            } else {
+                // There are no touch targets and this action is not an initial down
+                // so this view group continues to intercept touches.
+                intercepted = true;
+            }
+
+            // Check for cancelation.
+            final boolean canceled = resetCancelNextUpFlag(this)
+                    || actionMasked == MotionEvent.ACTION_CANCEL;
+
+            // Update list of touch targets for pointer down, if needed.
+            final boolean split = (mGroupFlags &amp;amp; FLAG_SPLIT_MOTION_EVENTS) != 0;
+            TouchTarget newTouchTarget = null;
+            boolean alreadyDispatchedToNewTouchTarget = false;
+            if (!canceled &amp;amp;&amp;amp; !intercepted) {
+                if (actionMasked == MotionEvent.ACTION_DOWN
+                        || (split &amp;amp;&amp;amp; actionMasked == MotionEvent.ACTION_POINTER_DOWN)
+                        || actionMasked == MotionEvent.ACTION_HOVER_MOVE) {
+                    final int actionIndex = ev.getActionIndex(); // always 0 for down
+                    final int idBitsToAssign = split ? 1 &amp;lt;&amp;lt; ev.getPointerId(actionIndex)
+                            : TouchTarget.ALL_POINTER_IDS;
+
+                    // Clean up earlier touch targets for this pointer id in case they
+                    // have become out of sync.
+                    removePointersFromTouchTargets(idBitsToAssign);
+
+                    final int childrenCount = mChildrenCount;
+                    if (childrenCount != 0) {
+                        // Find a child that can receive the event.
+                        // Scan children from front to back.
+                        final View[] children = mChildren;
+                        final float x = ev.getX(actionIndex);
+                        final float y = ev.getY(actionIndex);
+
+                        final boolean customOrder = isChildrenDrawingOrderEnabled();
+                        for (int i = childrenCount - 1; i &amp;gt;= 0; i--) {
+                            final int childIndex = customOrder ?
+                                    getChildDrawingOrder(childrenCount, i) : i;
+                            final View child = children[childIndex];
+                            if (!canViewReceivePointerEvents(child)
+                                    || !isTransformedTouchPointInView(x, y, child, null)) {
+                                continue;
+                            }
+
+                            newTouchTarget = getTouchTarget(child);
+                            if (newTouchTarget != null) {
+                                // Child is already receiving touch within its bounds.
+                                // Give it the new pointer in addition to the ones it is handling.
+                                newTouchTarget.pointerIdBits |= idBitsToAssign;
+                                break;
+                            }
+
+                            resetCancelNextUpFlag(child);
+                            if (dispatchTransformedTouchEvent(ev, false, child, idBitsToAssign)) {
+                                // Child wants to receive touch within its bounds.
+                                mLastTouchDownTime = ev.getDownTime();
+                                mLastTouchDownIndex = childIndex;
+                                mLastTouchDownX = ev.getX();
+                                mLastTouchDownY = ev.getY();
+                                newTouchTarget = addTouchTarget(child, idBitsToAssign);
+                                alreadyDispatchedToNewTouchTarget = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (newTouchTarget == null &amp;amp;&amp;amp; mFirstTouchTarget != null) {
+                        // Did not find a child to receive the event.
+                        // Assign the pointer to the least recently added target.
+                        newTouchTarget = mFirstTouchTarget;
+                        while (newTouchTarget.next != null) {
+                            newTouchTarget = newTouchTarget.next;
+                        }
+                        newTouchTarget.pointerIdBits |= idBitsToAssign;
+                    }
+                }
+            }
+
+            // Dispatch to touch targets.
+            if (mFirstTouchTarget == null) {
+                // No touch targets so treat this as an ordinary view.
+                handled = dispatchTransformedTouchEvent(ev, canceled, null,
+                        TouchTarget.ALL_POINTER_IDS);
+            } else {
+                // Dispatch to touch targets, excluding the new touch target if we already
+                // dispatched to it.  Cancel touch targets if necessary.
+                TouchTarget predecessor = null;
+                TouchTarget target = mFirstTouchTarget;
+                while (target != null) {
+                    final TouchTarget next = target.next;
+                    if (alreadyDispatchedToNewTouchTarget &amp;amp;&amp;amp; target == newTouchTarget) {
+                        handled = true;
+                    } else {
+                        final boolean cancelChild = resetCancelNextUpFlag(target.child)
+                        || intercepted;
+                        if (dispatchTransformedTouchEvent(ev, cancelChild,
+                                target.child, target.pointerIdBits)) {
+                            handled = true;
+                        }
+                        if (cancelChild) {
+                            if (predecessor == null) {
+                                mFirstTouchTarget = next;
+                            } else {
+                                predecessor.next = next;
+                            }
+                            target.recycle();
+                            target = next;
+                            continue;
+                        }
+                    }
+                    predecessor = target;
+                    target = next;
+                }
+            }
+
+            // Update list of touch targets for pointer up or cancel, if needed.
+            if (canceled
+                    || actionMasked == MotionEvent.ACTION_UP
+                    || actionMasked == MotionEvent.ACTION_HOVER_MOVE) {
+                resetTouchState();
+            } else if (split &amp;amp;&amp;amp; actionMasked == MotionEvent.ACTION_POINTER_UP) {
+                final int actionIndex = ev.getActionIndex();
+                final int idBitsToRemove = 1 &amp;lt;&amp;lt; ev.getPointerId(actionIndex);
+                removePointersFromTouchTargets(idBitsToRemove);
+            }
+        }
+
+        if (!handled &amp;amp;&amp;amp; mInputEventConsistencyVerifier != null) {
+            mInputEventConsistencyVerifier.onUnhandledEvent(ev, 1);
+        }
+        return handled;
+    }&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;代码很长，但是阅读完我们可以发现几点问题:
+1.允许ViewGroup去做事件拦截通过方法onInterceptTouchEvent()，使用requestDisallowInterceptTouchEvent方法可以设置是否允许拦截touch事件。
+2.onInterceptTouchEvent返回false的时候，会对事件进行分发，分发到子View上面。如果是某个子View是target,则调用子View的DdispatchTouchEvent，否则调用自身的super.dispatchTouchEvent方法。&lt;/p&gt;
+
+&lt;h3&gt;Activity的事件分发&lt;/h3&gt;
+
+&lt;p&gt;之前的文章就很明显的告诉我们ViewRootImpl会调用设置的mView，那么mView到底是什么呢？
+回顾Activity代码:&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;/**
+     * Set the activity content from a layout resource.  The resource will be
+     * inflated, adding all top-level views to the activity.
+     *
+     * @param layoutResID Resource ID to be inflated.
+     * 
+     * @see #setContentView(android.view.View)
+     * @see #setContentView(android.view.View, android.view.ViewGroup.LayoutParams)
+     */
+    public void setContentView(int layoutResID) {
+        getWindow().setContentView(layoutResID);
+        initActionBar();
+    }&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;这里getWindow获取的是PhoneWindow的实例，其setContentView如下：&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;@Override
+    public void setContentView(int layoutResID) {
+        if (mContentParent == null) {
+            installDecor();
+        } else {
+            mContentParent.removeAllViews();
+        }
+        mLayoutInflater.inflate(layoutResID, mContentParent);
+        final Callback cb = getCallback();
+        if (cb != null &amp;amp;&amp;amp; !isDestroyed()) {
+            cb.onContentChanged();
+        }
+    }&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;可以看到传入的布局文件最终会展开并作为mContentParent的子View。那么mContentParent又是怎么产生的？看下installDecor方法：&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;private void installDecor() {
+        if (mDecor == null) {
+            mDecor = generateDecor();
+            mDecor.setDescendantFocusability(ViewGroup.FOCUS_AFTER_DESCENDANTS);
+            mDecor.setIsRootNamespace(true);
+            if (!mInvalidatePanelMenuPosted &amp;amp;&amp;amp; mInvalidatePanelMenuFeatures != 0) {
+                mDecor.postOnAnimation(mInvalidatePanelMenuRunnable);
+            }
+        }
+        if (mContentParent == null) {
+            mContentParent = generateLayout(mDecor);
+
+            // Set up decor part of UI to ignore fitsSystemWindows if appropriate.
+            mDecor.makeOptionalFitsSystemWindows();
+            .......
+        }
+    }&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;这里通过generateLayout 创建了mContentParent，这个generateLayout是干嘛的呢？&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;protected ViewGroup generateLayout(DecorView decor) {
+            ......
+    // Inflate the window decor.
+
+        int layoutResource;
+        int features = getLocalFeatures();
+        ......
+        mDecor.startChanging();
+
+        View in = mLayoutInflater.inflate(layoutResource, null);
+        decor.addView(in, new ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT));
+
+        ViewGroup contentParent = (ViewGroup)findViewById(ID_ANDROID_CONTENT);
+        if (contentParent == null) {
+            throw new RuntimeException(&amp;quot;Window couldn&amp;#39;t find content container view&amp;quot;);
+        }
+
+        if ((features &amp;amp; (1 &amp;lt;&amp;lt; FEATURE_INDETERMINATE_PROGRESS)) != 0) {
+            ProgressBar progress = getCircularProgressBar(false);
+            if (progress != null) {
+                progress.setIndeterminate(true);
+            }
+        }
+
+        .........
+        mDecor.finishChanging();
+        return contentParent;
+}&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;可以看出，Activity中，最上层为DecorView，mContentParent为DecorView中id为Window.ID_ANDROID_CONTENT的子View，而我们通过setContentView方法传入的布局文件则是mContentParent的子View。所以之前看过的mView，其实就是DecorView的一个实例，看下DecorView的dispatchTouchEvent:&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;@Override
+        public boolean dispatchKeyEvent(KeyEvent event) {
+            if (!isDestroyed()) {
+                final Callback cb = getCallback();
+                final boolean handled = cb != null &amp;amp;&amp;amp; mFeatureId &amp;lt; 0 ? cb.dispatchKeyEvent(event)
+                        : super.dispatchKeyEvent(event);
+                if (handled) {
+                    return true;
+                }
+            }
+
+            return isDown ? PhoneWindow.this.onKeyDown(mFeatureId, event.getKeyCode(), event)
+                    : PhoneWindow.this.onKeyUp(mFeatureId, event.getKeyCode(), event);
+        }&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;这里的callback就是Activity，所以调用的就是Activity的dispatchKeyEvent().&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;/**
+     * Called to process touch screen events.  You can override this to
+     * intercept all touch screen events before they are dispatched to the
+     * window.  Be sure to call this implementation for touch screen events
+     * that should be handled normally.
+     * 
+     * @param ev The touch screen event.
+     * 
+     * @return boolean Return true if this event was consumed.
+     */
+    public boolean dispatchTouchEvent(MotionEvent ev) {
+        if (ev.getAction() == MotionEvent.ACTION_DOWN) {
+            onUserInteraction();
+        }
+        if (getWindow().superDispatchTouchEvent(ev)) {
+            return true;
+        }
+        return onTouchEvent(ev);
+    }&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;先调用的DecorView的superDispatchTouchEvent：&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;public boolean superDispatchTouchEvent(MotionEvent event) {
+            return super.dispatchTouchEvent(event);
+        }&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;这里就算分析完了，DecorView其实就是一个FrameLayout。&lt;/p&gt;
+
+&lt;h3&gt;结论&lt;/h3&gt;
+
+&lt;p&gt;1.我们可以发现大体的顺序是这样的 Activity  ----&gt;  ViewGroup  ----&gt;  View 通过这样的模型进行消息分发的。
+2. onTouch事件都是在 onTouchEvent之前的 设置为True了 事件就不会往下传。
+3.修改onTouchEvent事件的返回值可能对下次的事件有影响，改为false可能以后都收不到了。&lt;/p&gt;
+
+&lt;h3&gt;参考blog&lt;/h3&gt;
+</content>
+   </entry>
+   
+   <entry>
+     <title>Android</title>
+     <link href="http://beiyuu.com/AndroidTouch"/>
+     <updated>2015-01-06T00:00:00+08:00</updated>
+     <id>http://beiyuu.com/AndroidTouch</id>
+     <content type="html">&lt;p&gt;最近做项目会修改导事件分发，所以对系统这部分代码进行了一定的研究，对android的框架的流的过程发出来供大家参考下.
+所有代码研究基于android4.2.2_R1&lt;/p&gt;
+
+&lt;h3&gt;Activity与windowMnager打交道的过程&lt;/h3&gt;
+
+&lt;pre&gt;&lt;code&gt;首先是我们如何开启一个ActivityThread的，在ActivityThread中我们做了什么:
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;在ActivityThread中会最先调用的是handleLaunchActivity--&gt;handleResumeActivity;&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;final void handleResumeActivity(IBinder token, boolean clearHide, boolean isForward,
+            boolean reallyResume) {
+        .......
+        if (r.window == null &amp;amp;&amp;amp; !a.mFinished &amp;amp;&amp;amp; willBeVisible) {
+                r.window = r.activity.getWindow();
+                View decor = r.window.getDecorView();
+                decor.setVisibility(View.INVISIBLE);
+                ViewManager wm = a.getWindowManager();
+                WindowManager.LayoutParams l = r.window.getAttributes();
+                a.mDecor = decor;
+                l.type = WindowManager.LayoutParams.TYPE_BASE_APPLICATION;
+                l.softInputMode |= forwardBit;
+                if (a.mVisibleFromClient) {
+                    a.mWindowAdded = true;
+                    wm.addView(decor, l);
+                }
+        ......
+
+    }&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;核心代码就是上面的通过windowManager添加View,
+这里的wm实体其实是&lt;em&gt;WindowMnagerGlobal&lt;/em&gt;,查看addView:&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;public void addView(View view, ViewGroup.LayoutParams params,
+            Display display, Window parentWindow) {
+        
+        ......
+        ViewRootImpl root;
+        View panelParentView = null;
+        root = new ViewRootImpl(view.getContext(), display);
+        view.setLayoutParams(wparams);
+        ......
+        // do this last because it fires off messages to start doing things
+        try {
+            root.setView(view, wparams, panelParentView);
+        } catch (RuntimeException e) {
+            // BadTokenException or InvalidDisplayException, clean up.
+            synchronized (mLock) {
+                final int index = findViewLocked(view, false);
+                if (index &amp;gt;= 0) {
+                    removeViewLocked(index, true);
+                }
+            }
+            throw e;
+        }
+}&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;这里是new出了一个新的ViewRootImpl调用了setView方法:
+ViewRootImpl.java&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;/**
+     * We have one child
+     */
+    public void setView(View view, WindowManager.LayoutParams attrs, View panelParentView) {
+            ......
+            try {
+                    mOrigWindowType = mWindowAttributes.type;
+                    mAttachInfo.mRecomputeGlobalAttributes = true;
+                    collectViewAttributes();
+                    res = mWindowSession.addToDisplay(mWindow, mSeq, mWindowAttributes,
+                            getHostVisibility(), mDisplay.getDisplayId(),
+                            mAttachInfo.mContentInsets, mInputChannel);
+                } catch (RemoteException e) {
+                    mAdded = false;
+                    mView = null;
+                    mAttachInfo.mRootView = null;
+                    mInputChannel = null;
+                    mFallbackEventHandler.setView(null);
+                    unscheduleTraversals();
+                    setAccessibilityFocus(null, null);
+                    throw new RuntimeException(&amp;quot;Adding window failed&amp;quot;, e);
+                } finally {
+                    if (restore) {
+                        attrs.restore();
+                    }
+                }
+            .......
+            if (mInputChannel != null) {
+                    if (mInputQueueCallback != null) {
+                        mInputQueue = new InputQueue(mInputChannel);
+                        mInputQueueCallback.onInputQueueCreated(mInputQueue);
+                    } else {
+                        mInputEventReceiver = new WindowInputEventReceiver(mInputChannel,
+                                Looper.myLooper());
+                    }
+                }
+}&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;核心代码就是 mWindowSession.addToDisplay(),&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;@Override
+    public int addToDisplay(IWindow window, int seq, WindowManager.LayoutParams attrs,
+            int viewVisibility, int displayId, Rect outContentInsets,
+            InputChannel outInputChannel) {
+        return mService.addWindow(this, window, seq, attrs, viewVisibility, displayId,
+                outContentInsets, outInputChannel);
+    }&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;就是一个aidl调用，最终是调用的WindowManagerService的addWindow方法：&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;public int addWindow(Session session, IWindow client, int seq,
+            WindowManager.LayoutParams attrs, int viewVisibility, int displayId,
+            Rect outContentInsets, InputChannel outInputChannel) {
+
+        ......
+        if (outInputChannel != null &amp;amp;&amp;amp; (attrs.inputFeatures
+                    &amp;amp; WindowManager.LayoutParams.INPUT_FEATURE_NO_INPUT_CHANNEL) == 0) {
+                String name = win.makeInputChannelName();
+                InputChannel[] inputChannels = InputChannel.openInputChannelPair(name);
+                win.setInputChannel(inputChannels[0]);
+                inputChannels[1].transferTo(outInputChannel);
+
+                mInputManager.registerInputChannel(win.mInputChannel, win.mInputWindowHandle);
+            }
+        ......
+    }&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;这里打开了一对inputChannel一个作为server端，一个作为client端，并且注册到inputManager里头.这个inputChannel其实就是pipe,我们看看他们是怎么生成的：
+inputChannel.java&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;/**
+     * Creates a new input channel pair.  One channel should be provided to the input
+     * dispatcher and the other to the application&amp;#39;s input queue.
+     * @param name The descriptive (non-unique) name of the channel pair.
+     * @return A pair of input channels.  They are symmetric and indistinguishable.
+     */
+    public static InputChannel[] openInputChannelPair(String name) {
+        if (name == null) {
+            throw new IllegalArgumentException(&amp;quot;name must not be null&amp;quot;);
+        }
+
+        if (DEBUG) {
+            Slog.d(TAG, &amp;quot;Opening input channel pair &amp;#39;&amp;quot; + name + &amp;quot;&amp;#39;&amp;quot;);
+        }
+        return nativeOpenInputChannelPair(name);
+    }&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;natvie层对应代码：
+android_view_inputchannel.cpp&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;static jobjectArray android_view_InputChannel_nativeOpenInputChannelPair(JNIEnv* env,
+        jclass clazz, jstring nameObj) {
+    const char* nameChars = env-&amp;gt;GetStringUTFChars(nameObj, NULL);
+    String8 name(nameChars);
+    env-&amp;gt;ReleaseStringUTFChars(nameObj, nameChars);
+
+    sp&amp;lt;InputChannel&amp;gt; serverChannel;
+    sp&amp;lt;InputChannel&amp;gt; clientChannel;
+    status_t result = InputChannel::openInputChannelPair(name, serverChannel, clientChannel);
+
+    if (result) {
+        String8 message;
+        message.appendFormat(&amp;quot;Could not open input channel pair.  status=%d&amp;quot;, result);
+        jniThrowRuntimeException(env, message.string());
+        return NULL;
+    }
+
+    jobjectArray channelPair = env-&amp;gt;NewObjectArray(2, gInputChannelClassInfo.clazz, NULL);
+    if (env-&amp;gt;ExceptionCheck()) {
+        return NULL;
+    }
+
+    jobject serverChannelObj = android_view_InputChannel_createInputChannel(env,
+            new NativeInputChannel(serverChannel));
+    if (env-&amp;gt;ExceptionCheck()) {
+        return NULL;
+    }
+
+    jobject clientChannelObj = android_view_InputChannel_createInputChannel(env,
+            new NativeInputChannel(clientChannel));
+    if (env-&amp;gt;ExceptionCheck()) {
+        return NULL;
+    }
+
+    env-&amp;gt;SetObjectArrayElement(channelPair, 0, serverChannelObj);
+    env-&amp;gt;SetObjectArrayElement(channelPair, 1, clientChannelObj);
+    return channelPair;
+}&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;主要关注函数openInputChannelPair&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;status_t InputChannel::openInputChannelPair(const String8&amp;amp; name,
+        sp&amp;lt;InputChannel&amp;gt;&amp;amp; outServerChannel, sp&amp;lt;InputChannel&amp;gt;&amp;amp; outClientChannel) {
+    int sockets[2];
+    if (socketpair(AF_UNIX, SOCK_SEQPACKET, 0, sockets)) {
+        status_t result = -errno;
+        ALOGE(&amp;quot;channel &amp;#39;%s&amp;#39; ~ Could not create socket pair.  errno=%d&amp;quot;,
+                name.string(), errno);
+        outServerChannel.clear();
+        outClientChannel.clear();
+        return result;
+    }
+
+    int bufferSize = SOCKET_BUFFER_SIZE;
+    setsockopt(sockets[0], SOL_SOCKET, SO_SNDBUF, &amp;amp;bufferSize, sizeof(bufferSize));
+    setsockopt(sockets[0], SOL_SOCKET, SO_RCVBUF, &amp;amp;bufferSize, sizeof(bufferSize));
+    setsockopt(sockets[1], SOL_SOCKET, SO_SNDBUF, &amp;amp;bufferSize, sizeof(bufferSize));
+    setsockopt(sockets[1], SOL_SOCKET, SO_RCVBUF, &amp;amp;bufferSize, sizeof(bufferSize));
+
+    String8 serverChannelName = name;
+    serverChannelName.append(&amp;quot; (server)&amp;quot;);
+    outServerChannel = new InputChannel(serverChannelName, sockets[0]);
+
+    String8 clientChannelName = name;
+    clientChannelName.append(&amp;quot; (client)&amp;quot;);
+    outClientChannel = new InputChannel(clientChannelName, sockets[1]);
+    return OK;
+}&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;这里就可以发现双方是通过一个共享内存，socket的方式通信。这时候我们就已经初步的了解 Activity与windowManagerService是如何建立联系的.&lt;/p&gt;
+
+&lt;h3&gt;Activity接收事件过程&lt;/h3&gt;
+
+&lt;p&gt;在ViewRootImpl中，我们会创建一个WindowInputEventReceiver，WindowInputEventReceiver的初始化会使用inputchannel和主线程的looper,继承于InputEventReceiver:&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;**
+     * Creates an input event receiver bound to the specified input channel.
+     *
+     * @param inputChannel The input channel.
+     * @param looper The looper to use when invoking callbacks.
+     */
+    public InputEventReceiver(InputChannel inputChannel, Looper looper) {
+        if (inputChannel == null) {
+            throw new IllegalArgumentException(&amp;quot;inputChannel must not be null&amp;quot;);
+        }
+        if (looper == null) {
+            throw new IllegalArgumentException(&amp;quot;looper must not be null&amp;quot;);
+        }
+
+        mInputChannel = inputChannel;
+        mMessageQueue = looper.getQueue();
+        mReceiverPtr = nativeInit(this, inputChannel, mMessageQueue);
+
+        mCloseGuard.open(&amp;quot;dispose&amp;quot;);
+    }&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;会调用底层的nativeInit：
+android_view_InputEventReceiver.cpp&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;static jint nativeInit(JNIEnv* env, jclass clazz, jobject receiverObj,
+        jobject inputChannelObj, jobject messageQueueObj) {
+    sp&amp;lt;InputChannel&amp;gt; inputChannel = android_view_InputChannel_getInputChannel(env,
+            inputChannelObj);
+    if (inputChannel == NULL) {
+        jniThrowRuntimeException(env, &amp;quot;InputChannel is not initialized.&amp;quot;);
+        return 0;
+    }
+
+    sp&amp;lt;MessageQueue&amp;gt; messageQueue = android_os_MessageQueue_getMessageQueue(env, messageQueueObj);
+    if (messageQueue == NULL) {
+        jniThrowRuntimeException(env, &amp;quot;MessageQueue is not initialized.&amp;quot;);
+        return 0;
+    }
+
+    sp&amp;lt;NativeInputEventReceiver&amp;gt; receiver = new NativeInputEventReceiver(env,
+            receiverObj, inputChannel, messageQueue);
+    status_t status = receiver-&amp;gt;initialize();
+    if (status) {
+        String8 message;
+        message.appendFormat(&amp;quot;Failed to initialize input event receiver.  status=%d&amp;quot;, status);
+        jniThrowRuntimeException(env, message.string());
+        return 0;
+    }
+
+    receiver-&amp;gt;incStrong(gInputEventReceiverClassInfo.clazz); // retain a reference for the object
+    return reinterpret_cast&amp;lt;jint&amp;gt;(receiver.get());
+}&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;这里其实是拿到上层的looper和上层的inputchannel去生成一个NativeInputEventReceiver，在看看NativeInputEventReceiver的作用:&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;NativeInputEventReceiver::NativeInputEventReceiver(JNIEnv* env,
+        jobject receiverObj, const sp&amp;lt;InputChannel&amp;gt;&amp;amp; inputChannel,
+        const sp&amp;lt;MessageQueue&amp;gt;&amp;amp; messageQueue) :
+        mReceiverObjGlobal(env-&amp;gt;NewGlobalRef(receiverObj)),
+        mInputConsumer(inputChannel), mMessageQueue(messageQueue),
+        mBatchedInputEventPending(false) {
+#if DEBUG_DISPATCH_CYCLE
+    ALOGD(&amp;quot;channel &amp;#39;%s&amp;#39; ~ Initializing input event receiver.&amp;quot;, getInputChannelName());
+#endif
+}&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;status_t NativeInputEventReceiver::initialize() {
+    int receiveFd = mInputConsumer.getChannel()-&amp;gt;getFd();
+    mMessageQueue-&amp;gt;getLooper()-&amp;gt;addFd(receiveFd, 0, ALOOPER_EVENT_INPUT, this, NULL);
+    return OK;
+}&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;NativeInputEventReceiver实际上就是生成了一个mInputConsumer,并且调用initialize，将inputChannel的fd挂载到looper中去监听事件，回调函数为handleEvent：&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;int NativeInputEventReceiver::handleEvent(int receiveFd, int events, void* data) {
+    if (events &amp;amp; (ALOOPER_EVENT_ERROR | ALOOPER_EVENT_HANGUP)) {
+        ALOGE(&amp;quot;channel &amp;#39;%s&amp;#39; ~ Publisher closed input channel or an error occurred.  &amp;quot;
+                &amp;quot;events=0x%x&amp;quot;, getInputChannelName(), events);
+        return 0; // remove the callback
+    }
+
+    if (!(events &amp;amp; ALOOPER_EVENT_INPUT)) {
+        ALOGW(&amp;quot;channel &amp;#39;%s&amp;#39; ~ Received spurious callback for unhandled poll event.  &amp;quot;
+                &amp;quot;events=0x%x&amp;quot;, getInputChannelName(), events);
+        return 1;
+    }
+
+    JNIEnv* env = AndroidRuntime::getJNIEnv();
+    status_t status = consumeEvents(env, false /*consumeBatches*/, -1);
+    mMessageQueue-&amp;gt;raiseAndClearException(env, &amp;quot;handleReceiveCallback&amp;quot;);
+    return status == OK || status == NO_MEMORY ? 1 : 0;
+}&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;status_t NativeInputEventReceiver::consumeEvents(JNIEnv* env,
+        bool consumeBatches, nsecs_t frameTime) {
+    .......
+        if (!skipCallbacks) {
+            jobject inputEventObj;
+            switch (inputEvent-&amp;gt;getType()) {
+            case AINPUT_EVENT_TYPE_KEY:
+#if DEBUG_DISPATCH_CYCLE
+                ALOGD(&amp;quot;channel &amp;#39;%s&amp;#39; ~ Received key event.&amp;quot;, getInputChannelName());
+#endif
+                inputEventObj = android_view_KeyEvent_fromNative(env,
+                        static_cast&amp;lt;KeyEvent*&amp;gt;(inputEvent));
+                break;
+
+            case AINPUT_EVENT_TYPE_MOTION:
+#if DEBUG_DISPATCH_CYCLE
+                ALOGD(&amp;quot;channel &amp;#39;%s&amp;#39; ~ Received motion event.&amp;quot;, getInputChannelName());
+#endif
+                inputEventObj = android_view_MotionEvent_obtainAsCopy(env,
+                        static_cast&amp;lt;MotionEvent*&amp;gt;(inputEvent));
+                break;
+
+            default:
+                assert(false); // InputConsumer should prevent this from ever happening
+                inputEventObj = NULL;
+            }
+
+            if (inputEventObj) {
+#if DEBUG_DISPATCH_CYCLE
+                ALOGD(&amp;quot;channel &amp;#39;%s&amp;#39; ~ Dispatching input event.&amp;quot;, getInputChannelName());
+#endif
+                env-&amp;gt;CallVoidMethod(mReceiverObjGlobal,
+                        gInputEventReceiverClassInfo.dispatchInputEvent, seq, inputEventObj);
+                if (env-&amp;gt;ExceptionCheck()) {
+                    ALOGE(&amp;quot;Exception dispatching input event.&amp;quot;);
+                    skipCallbacks = true;
+                }
+            } else {
+                ALOGW(&amp;quot;channel &amp;#39;%s&amp;#39; ~ Failed to obtain event object.&amp;quot;, getInputChannelName());
+                skipCallbacks = true;
+            }
+        }
+
+        if (skipCallbacks) {
+            mInputConsumer.sendFinishedSignal(seq, false);
+        }
+    }
+}&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;这里会回调到java层上的InputEventReceiver的dispatchInputEvent：&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;// Called from native code.
+    @SuppressWarnings(&amp;quot;unused&amp;quot;)
+    private void dispatchInputEvent(int seq, InputEvent event) {
+        mSeqMap.put(event.getSequenceNumber(), seq);
+        onInputEvent(event);
+    }&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;这里的onInputEvent(event)方法已经被WindowInputEventReceiver复写了:&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;@Override
+        public void onInputEvent(InputEvent event) {
+            enqueueInputEvent(event, this, 0, true);
+        }&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;这里往下翻一点就知道这个队列做了什么事情:&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;private void deliverInputEvent(QueuedInputEvent q) {
+        Trace.traceBegin(Trace.TRACE_TAG_VIEW, &amp;quot;deliverInputEvent&amp;quot;);
+        try {
+            if (q.mEvent instanceof KeyEvent) {
+                deliverKeyEvent(q);
+            } else {
+                final int source = q.mEvent.getSource();
+                if ((source &amp;amp; InputDevice.SOURCE_CLASS_POINTER) != 0) {
+                    deliverPointerEvent(q);
+                } else if ((source &amp;amp; InputDevice.SOURCE_CLASS_TRACKBALL) != 0) {
+                    deliverTrackballEvent(q);
+                } else {
+                    deliverGenericMotionEvent(q);
+                }
+            }
+        } finally {
+            Trace.traceEnd(Trace.TRACE_TAG_VIEW);
+        }
+    }&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;这里讲底层的inputEvent分成各种不同的类型去区别对待.&lt;/p&gt;
+
+&lt;p&gt;这里就能看到View是如何接收事件的整个过程的&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;h3&gt;结论&lt;/h3&gt;
+
+&lt;p&gt;1.androd的底层实现是通过socket和共享内存的方式，这种写法也可以采用在我们自己的多进程通信上使用，值得学习
+2.底层所有的event其实都是一样的，都是inputEvent，上层会根据source再分成keyEvent,MotionEvent等，用于不同的用处
+3.所有View的起点其实就是dispatchPointerEvent()，这个是分发事件的起点.&lt;/p&gt;
+
+&lt;h3&gt;参考blog&lt;/h3&gt;
+</content>
+   </entry>
+   
+   <entry>
+     <title>Android图形的知识</title>
+     <link href="http://beiyuu.com/AndroidCanvas"/>
+     <updated>2014-12-13T00:00:00+08:00</updated>
+     <id>http://beiyuu.com/AndroidCanvas</id>
+     <content type="html">&lt;h3&gt;关于自定义控件的基础知识&lt;/h3&gt;
+
+&lt;p&gt;自定义控件的一个重点就是实现就是去重写他的绘制过程,也就是View.onDraw(Canvas canvas)方法。这个里面就是绘制图形的过程了，比如说一个Button，绘制按钮和按钮上的文字都是在它自己的onDraw方法中完成的。如果你想给ImageView加个蒙版，可以继承ImageView并且重写他的onDraw方法，调用完父类的onDraw之后，再自己Canvas来画一个黑色的半透明矩形，这样就可以对现有的控件进行加工了。
+Canvas是什么呢？是画布，你绘制东西的时候就是绘到了这个画布上，给用户显示的东西也是这个画布上的东西。通常来说，当你调用到onDraw方法的时候对应的View已经确定了他的宽度和高度(关于View的measure和layout过程以后再详述)。那么在Canvas上，你画的范围就只有View对应的大小了。我们用代码来描述下&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;protected void onDraw(Canvas canvas) {
+    super.onDraw(canvas);
+    int verticalCenter    =  getHeight() / 2;
+    int horizontalCenter  =  getWidth() / 2;
+    int circleRadius      = 200;
+    Paint paint = new Paint();
+    paint.setAntiAlias(false);
+    paint.setColor(Color.RED);
+    canvas.drawCircle( horizontalCenter, verticalCenter-250, circleRadius, paint);
+
+    paint.setAntiAlias(true);
+    paint.setStyle(Paint.Style.STROKE);
+    paint.setStrokeWidth(20);
+    canvas.drawCircle( horizontalCenter, verticalCenter+250, circleRadius, paint);
+}&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;这个View的大小可以通过getHeight()和getWidth()来获得。我们准备画两个圆圈，半径都是200。我们主要用到的方法是drawCircle()方法，参数的意义分别是圆心的x，y坐标，半径和所使用的画笔Paint。&lt;/p&gt;
+
+&lt;p&gt;Paint是什么？是画笔的意思，Canvas是画布，Paint是画笔，画笔控制了所画东西的颜色大小字体等等。在画第一个圆的时候，我们通过Paint.setAntiAlias方法设置抗锯齿属性为false，并设置颜色为红色。&lt;/p&gt;
+
+&lt;p&gt;在画第二个圆的时候，我们打开了抗锯齿。将Paint的风格设为STROKE，也就是只画边框。然后设置边框宽度为20.&lt;/p&gt;
+
+&lt;h3&gt;关于Canvas所涉及的到的类&lt;/h3&gt;
+
+&lt;p&gt;android.graphics.* 包里面主要由以下一些类：&lt;/p&gt;
+
+&lt;ul&gt;
+    &lt;li&gt;Canvas/li&gt;
+    &lt;li&gt;Bitmap及其相关的类&lt;/li&gt;
+    &lt;li&gt;Xfermode及其子类&lt;/li&gt;
+    &lt;li&gt;Paint及其相关类和内部类&lt;/li&gt;
+    &lt;li&gt;Shader及其子类&lt;/li&gt;
+    &lt;li&gt;Rect，Color，Point，Path等基础类&lt;/li&gt;
+&lt;/ul&gt;
+
+
+&lt;h3&gt;Canvas.drawText绘制文字为什么会偏上？&lt;/h3&gt;
+
+&lt;p&gt;如果你经常使用Canvas的draw***方法去绘制一些图像图形，你会知道绘制的时候坐标是从Canvas左上角开始计算的，如果想要把一个图像放到某个位置，直接drawBitmap传递图片左上角的坐标就行了.&lt;/p&gt;
+
+&lt;p&gt;那drawText就不一样了，如果你传递进去字符串，会发现文字的位置和你指定的不一样。&lt;/p&gt;
+
+&lt;p&gt;卧槽为啥。Android的文档也没有仔细说，打开源码一看，又跑到native代码里去执行了。经过我奋力地Google，终于把这个问题搞清楚了。&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/android/android_drawtext.jpeg&quot; title=&quot;Optional title&quot; alt=&quot;Alt text&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;对于一段文字来说，如果你想把他画到Canvas上，首先你要确定这段文字的范围，即宽度和高度，那么怎么去取这一段的高度呢，如果你在网上搜，会有很多种答案，具体应该用哪一种呢？这要看你到底需要什么样的尺寸了。&lt;/p&gt;
+
+&lt;p&gt;Paint.getTextBounds: 当你通过这个方法来获取尺寸的时候，你可以得到能够包裹文字的最小矩形，就是图中红色边框的那部分，你可以得到一个Rect对象，包含这个最小尺寸的几个值。坑其实就在这里：这里的Rect对象坐标并不是以左上角为准的，而是相对于左边中间靠下位置的一个点，就是图中的黄色五角星。而这里水平的Baseline指的是字符串对齐的一条线（真正的含义可以需要更深入了解字体渲染的知识了）。既然这样，r.top就是一个负值了，r.bottom会是一个小一点的正值，r.left和r.right在图中画的都很清楚。通过r.width()和r.height()来获取尺寸。&lt;/p&gt;
+
+&lt;p&gt;那么文字的偏移就好说了，比如说你要把文字画在Canvas的左上角，坐标是(0,0)，但是当你通过：&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;canvas.drawText(“dangwen”,0,0,paint);&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;来画文字的时候，发现只有文字的下半部分画出来了，因为你传递进去的参数应该是以Baseline为标准的，正确的方法是：&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;canvas.drawText(“dangwen”,-r.left,-r.top,paint);&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;Paint.getFontMetricsInt(): 当你通过这里方法来获取尺寸的时候，你获取的只是一个垂直方向上的尺寸，这里的ascent代表的是字体的上部，descent代表的是字体的下部，这里需要注意的是这和上面获得的Rect的top和bottom不太一样，他们比比ascent和descent距离稍微小一些，这些具体的高度可能和不同的字体和渲染方式有关系，这里就不深入了 #我是不懂#。&lt;/p&gt;
+
+&lt;p&gt;然后如果把文字写入TextView（图中蓝色部分）并且设置TextView的高度和宽度设为wrap_content，那么TextView的高度就正好是FontMetricsInt.top – FontMetricsInt.bottom, 那宽度呢？ Paint.measureText()。&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+
+</content>
+   </entry>
+   
+   <entry>
+     <title>android中如何高效的使用alpha属性</title>
+     <link href="http://beiyuu.com/android-Alpha"/>
+     <updated>2014-12-07T00:00:00+08:00</updated>
+     <id>http://beiyuu.com/android-Alpha</id>
+     <content type="html">&lt;h2&gt;#&lt;/h2&gt;
+
+&lt;p&gt;Alpha是图形界面开发中常用的特效，通常我们会使用以下代码来实现Alpha特效：&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;view.setAlpha(0.5f);
+    View.ALPHA.set(view, 0.5f);
+    ObjectAnimator.ofFloat(view, &amp;quot;alpha&amp;quot;, 0.5f).start();
+    view.animate().alpha(0.5f).start();
+    view.setAnimation(new AlphaAnimation(1.0f, 0.5f));&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;其效果都等同于：&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;canvas.saveLayer(l, r, t, b, 127, Canvas.CLIP_TO_LAYER_SAVE_FLAG);&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;所以常见的alpha特效是通过将图像绘制到offscreen buffer中然后显示出来，这样的操作是非常消耗资源的，甚至可能导致性能问题，在开发过程中我们可以通过其他方式避免创建offsreen buffer。&lt;/p&gt;
+
+&lt;h3&gt;TextView&lt;/h3&gt;
+
+&lt;p&gt;对于TextView我们通常需要文字透明效果，而不是View本身透明，所以，直接设置带有alpha值的TextColor是比较高效的方式。&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;// Not this
+    textView.setAlpha(alpha);
+    
+    // 以下方式可以避免创建 offscreen buffer
+    int newTextColor = (int) (0xFF * alpha) &amp;lt;&amp;lt; 24 | baseTextColor &amp;amp; 0xFFFFFF;
+    textView.setTextColor(newTextColor);&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;h3&gt;ImageView&lt;/h3&gt;
+
+&lt;p&gt;同样的对于只具有src image的ImageView，直接调用setImageAlpha()方法更为合理。&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;// Not this, setAlpha方法由View继承而来，性能不佳
+    imageView.setAlpha(0.5f);
+
+    // 使用以下方式时，ImageView会在绘制图片时单独为图片指定Alpha
+    // 可以避免创建 offScreenBuffer
+    imageView.setImageAlpha((int) alpha * 255);&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;h3&gt;CustomView&lt;/h3&gt;
+
+&lt;p&gt;类似的，自定义控件时，应该直接去设置paint的alpha。&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;// Not this
+    customView.setAlpha(alpha);
+
+    // But this
+    paint.setAlpha((int) alpha * 255);
+    canvas.draw*(..., paint);&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;同时Android提供了hasOverlappingRendering()接口，通过重写该接口可以告知系统当前View是否存在内容重叠的情况，帮助系统优化绘制流程，原理是这样的：对于有重叠内容的View，系统简单粗暴的使用 offscreen buffer来协助处理。当告知系统该View无重叠内容时，系统会分别使用合适的alpha值绘制每一层。&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;/**
+ * Returns whether this View has content which overlaps. This function, intended to be
+ * overridden by specific View types, is an optimization when alpha is set on a view. If
+ * rendering overlaps in a view with alpha &amp;lt; 1, that view is drawn to an offscreen buffer
+ * and then composited it into place, which can be expensive. If the view has no overlapping
+ * rendering, the view can draw each primitive with the appropriate alpha value directly.
+ * An example of overlapping rendering is a TextView with a background image, such as a
+ * Button. An example of non-overlapping rendering is a TextView with no background, or
+ * an ImageView with only the foreground image. The default implementation returns true;
+ * subclasses should override if they have cases which can be optimized.
+ *
+ * @return true if the content in this view might overlap, false otherwise.
+ */
+public boolean hasOverlappingRendering() {
+    return true;
+}&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;最后引用Chet Haase的一句话作为总结&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;“You know what your view is doing, so do the right thing for your situation.”&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;http://blog.csdn.net/guolin_blog/article/details/16330267&lt;/p&gt;
+</content>
+   </entry>
    
    <entry>
      <title>android的View绘制</title>
@@ -670,351 +1792,6 @@ disassemble/disas //查看汇编代码
 
 &lt;p&gt;1.如果出现下述报错，就是lint检查失败了，没有生成结果文件。
 &lt;img src=&quot;/images/android/android_ant.jpg&quot; title=&quot;Optional title&quot; alt=&quot;Alt text&quot; /&gt;&lt;/p&gt;
-</content>
-   </entry>
-   
-   <entry>
-     <title>android的ListView常见问题</title>
-     <link href="http://beiyuu.com/android-diandi"/>
-     <updated>2014-10-16T00:00:00+08:00</updated>
-     <id>http://beiyuu.com/android-diandi</id>
-     <content type="html">&lt;h3&gt;android listView addHeaderView的问题&lt;/h3&gt;
-
-&lt;pre&gt;&lt;code&gt;隐藏headerView的思路:使用View.GONE属性隐藏
-&lt;/code&gt;&lt;/pre&gt;
-
-&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;&amp;lt;LinearLayout android:id=&amp;quot;@+id/item_root&amp;quot;
-    android:layout_width=&amp;quot;fill_parent&amp;quot;
-    android:layout_height=&amp;quot;50dip&amp;quot;
-    android:orientation=&amp;quot;vertical&amp;quot; &amp;gt;
-&amp;lt;TextView  android:id=&amp;quot;@+id/tv_1&amp;quot; /&amp;gt;
-&amp;lt;TextView  android:id=&amp;quot;@+id/tv_2&amp;quot; /&amp;gt;
-&amp;lt;/LinearLayout &amp;gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
-
-
-&lt;pre&gt;&lt;code&gt;此时，有如下逻辑：
-&lt;/code&gt;&lt;/pre&gt;
-
-&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;ListView listView = xxxx;
-  listView.addHearderView(item_root);
-  listView.setAdapter(adapter);
-  adapter.add(xxxxx);添加数据
-  item_root.setVisibility(View.GONE);&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
-
-
-&lt;pre&gt;&lt;code&gt;实测发现使用View.GONE方法后，头部依然会占用相应的高度无法隐藏。
-原因是：如果直接修改根布局的属性，就会造成headerView的显示有问题。
-所以修改成操作item_root里头的View显示就好了。
-&lt;/code&gt;&lt;/pre&gt;
-
-&lt;h3&gt;添加HeaderView之后尺寸布局被忽略&lt;/h3&gt;
-
-&lt;pre&gt;&lt;code&gt;通常添加头部的方法是 
-&lt;/code&gt;&lt;/pre&gt;
-
-&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;LayoutInflater lif = (LayoutInflater) getSystemService(Context.LAYOUT_INFLATER_SERVICE);
-View headerView = lif.inflate(R.layout.header, null);
-mListView.addHeaderView(headerView);&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
-
-
-&lt;p&gt;原因：
-lif.inflate(R.layout.header, null)丢失了XML布局中根View的LayoutParam，应该使用的是&lt;/p&gt;
-
-&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;lif.inflate(R.layout.header, mListView, false);&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
-
-
-&lt;h3&gt;添加HeaderView之后导致OnItemClickListener的position移位&lt;/h3&gt;
-
-&lt;p&gt;OnItemClickListener接口的方法：&lt;/p&gt;
-
-&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;void onItemClick(AdapterView&amp;lt;?&amp;gt; parent, View view, int position, long id)&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
-
-
-&lt;p&gt;position通常是从0开始的，但是添加了HeaderView之后，position也会将HeaderView的数目计算进去。
-几个解决办法：
-1.手动计算真实的position位置：&lt;/p&gt;
-
-&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;final headerCount = 1;
-mListView.setOnItemClickListener(new OnItemClickListener() {
-    @Override
-    public void onItemClick(AdapterView&amp;lt;?&amp;gt; parent, View view,
-            int position, long id) {
-        Item item = myAdapter.getItem(position - headerCount);
-    }
-});&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
-
-
-&lt;p&gt;2.其实上面的步骤ListView已经为我们提供了，所以可以改写为：&lt;/p&gt;
-
-&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;mListView.setOnItemClickListener(new OnItemClickListener() {
-    @Override
-    public void onItemClick(AdapterView&amp;lt;?&amp;gt; parent, View view,
-            int position, long id) {
-        Item item = parent.getAdapter().getItem(position);
-    }
-});&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
-
-
-&lt;p&gt;原因在源码中有比较清晰的解释：
-当有headerView被添加时，实际传递给ListView的adapter被包装，parent.getAdapter()返回真实被ListView使用的Adapter（HeaderViewListAdapter），HeaderViewListAdapter的getItem(int)方法处理了position的问题。&lt;/p&gt;
-</content>
-   </entry>
-   
-   <entry>
-     <title>androidL预言</title>
-     <link href="http://beiyuu.com/android_L"/>
-     <updated>2014-09-30T00:00:00+08:00</updated>
-     <id>http://beiyuu.com/android_L</id>
-     <content type="html">&lt;h2&gt;64bit / ART (重要)&lt;/h2&gt;
-
-&lt;ul&gt;
-&lt;li&gt;Android 4.4 之下ART为可选Runtime, 默认仍然为Delivik, AndroidL默认Runtime为ART&lt;/li&gt;
-&lt;li&gt;支持ARM, x86 and MIPS processors&lt;/li&gt;
-&lt;li&gt;兼容 64-bit CPU&lt;/li&gt;
-&lt;li&gt;x2 faster&lt;/li&gt;
-&lt;li&gt;多数应用不需要更改就可以在ART上运行&lt;/li&gt;
-&lt;li&gt;ART最终会使用(目前不是) Compacting garbage collector, 对象会在GC后改变地址, 所以JNI代码可能会有兼容问题. (可以使用工具检查: ​http://android-developers.blogspot.hk/2011/07/debugging-android-jni-with-checkjni.html)&lt;/li&gt;
-&lt;li&gt;Delivik中Java的Stack和Native的Stack是分开的, ART则是共用的.&lt;/li&gt;
-&lt;li&gt;有些程序可能依赖/system/framework, /data/dalvik-cache下的odex文件, 现在这些文件会变成ELF格式的, 所以最好不要干这种事情.&lt;/li&gt;
-&lt;li&gt;ART编译器可以十分可靠的处理标准JAVA字节码,但是不见得能很好的处理Delivik字节码,尤其是经过混淆/优化的字节码可能会遭遇ART编译失败.&lt;/li&gt;
-&lt;li&gt;System.gc() 不再很有效, 用多了反而会有害, 总之不能依靠这个, 可以通过判断当前的Runtime是不是ART来决定是否调用gc()&lt;/li&gt;
-&lt;li&gt;部分JNI函数开始抛异常了(所谓的更加严格的JNI规范, 可以使用CheckJNI工具进行检查)&lt;/li&gt;
-&lt;/ul&gt;
-
-
-&lt;h3&gt;通知栏&lt;/h3&gt;
-
-&lt;ul&gt;
-&lt;li&gt;UI风格发生变化&lt;/li&gt;
-&lt;li&gt;Head-off通知栏, 以悬浮窗的模式显示在屏幕顶部&lt;/li&gt;
-&lt;li&gt;使用 Ringtone/ MediaPlayer / Vibrator 发出声音的Notification应该把代码去掉, 或者使用 Notification.Builder来设置声音和震动.&lt;/li&gt;
-&lt;/ul&gt;
-
-
-&lt;h3&gt;ActivityManager.getRecentTasks() (重要)&lt;/h3&gt;
-
-&lt;ul&gt;
-&lt;li&gt;出于隐私问题, 这个API已经标记为失效, 出于兼容性考虑, 仍然会返回部分数据.&lt;/li&gt;
-&lt;li&gt;应用可以通过android.app.ActivityManager?.getAppTasks() 检索自己的Task&lt;/li&gt;
-&lt;/ul&gt;
-
-
-&lt;h3&gt;UI&lt;/h3&gt;
-
-&lt;ul&gt;
-&lt;li&gt;View shadows (原来只是支持x/y方向的shadow, 现在支持z方向, 很多情况下阴影不需要做到切图里了)&lt;/li&gt;
-&lt;li&gt;RecyclerView (一个更高级的ListView, 在性能/内存使用上有优化)&lt;/li&gt;
-&lt;li&gt;CardView&lt;/li&gt;
-&lt;/ul&gt;
-
-
-&lt;h3&gt;Lockscreen Notifications&lt;/h3&gt;
-
-&lt;ul&gt;
-&lt;li&gt;VISIBILITY_PRIVATE: 显示通知的基本信息, 比如图标,内容不展示&lt;/li&gt;
-&lt;li&gt;VISIBILITY_PUBLIC: 所有通知内容都显示&lt;/li&gt;
-&lt;li&gt;VISIBILITY_SECRET: 啥都不显示
-锁屏时显示通知.
-&lt;img src=&quot;/images/android/androidL_1.png&quot; title=&quot;Optional title&quot; alt=&quot;Alt text&quot; /&gt;
-
-&lt;h3&gt;New Recent App View&lt;/h3&gt;
-
-&lt;h3&gt;Improved Graphics&lt;/h3&gt;&lt;/li&gt;
-&lt;li&gt;支持OpenGL ES 3.1&lt;/li&gt;
-&lt;li&gt;Android Extension Pack&lt;/li&gt;
-&lt;/ul&gt;
-
-
-&lt;h3&gt;Concurrent documents and activities in the Recents screen&lt;/h3&gt;
-
-&lt;ul&gt;
-&lt;li&gt;统一个应用可以有多个任务并存, 可以相互切换.&lt;/li&gt;
-&lt;/ul&gt;
-
-
-&lt;h3&gt;存储&lt;/h3&gt;
-
-&lt;ul&gt;
-&lt;li&gt;DocumentsProvider : 允许用户选中目录, 对整个目录以及子目录设置读写权限(不需要用户逐一确认)&lt;/li&gt;
-&lt;li&gt;android.content.Context.getExternalMediaDirs() 提供了一个新的存储APP相关的媒体文件的机制, 可以帮助MediaStore更快的索引媒体文件. (重要)&lt;/li&gt;
-&lt;/ul&gt;
-
-
-&lt;h3&gt;无线网络&lt;/h3&gt;
-
-&lt;ul&gt;
-&lt;li&gt;多个网络连接并存 (重要)&lt;/li&gt;
-&lt;/ul&gt;
-
-
-&lt;h3&gt;Bluetooth 4.1&lt;/h3&gt;
-
-&lt;p&gt;蓝牙4.3 / Bluetooth Low Energy
-Volta / Battery Histrian
-JobScheduler?
-更加详细的应用耗电信息, 提供了分析工具, 对APP优化应该有很大帮助&lt;/p&gt;
-
-&lt;h3&gt;Sec. &amp;amp; Privacy&lt;/h3&gt;
-
-&lt;h3&gt;WebView&lt;/h3&gt;
-
-&lt;p&gt;新增支持 :&lt;/p&gt;
-
-&lt;p&gt;WebAudio
-- WebGL
-- WebRTC&lt;/p&gt;
-
-&lt;h3&gt;Google play service , system update&lt;/h3&gt;
-
-&lt;ul&gt;
-&lt;li&gt;可以通过Google play下载漏洞补丁
-
-&lt;h3&gt;NFC&lt;/h3&gt;&lt;/li&gt;
-&lt;li&gt;Android Beam加入到分享菜单中
-
-&lt;h3&gt;API示例&lt;/h3&gt;
-
-&lt;h3&gt;参考&lt;/h3&gt;&lt;/li&gt;
-&lt;li&gt;​http://developer.android.com/preview/api-overview.html&lt;/li&gt;
-&lt;li&gt;​http://developer.android.com/preview/reference.html&lt;/li&gt;
-&lt;li&gt;​http://developer.android.com/preview/material/index.html&lt;/li&gt;
-&lt;/ul&gt;
-
-
-&lt;p&gt;PNG压缩工具
-在线： ​https://tinypng.com/ 目前可用host（54.194.15.171 tinypng.com）&lt;/p&gt;
-
-&lt;p&gt;工具：PNGGauntlet ​http://www.downxia.com/downinfo/25032.html&lt;/p&gt;
-
-&lt;h2&gt;#&lt;/h2&gt;
-</content>
-   </entry>
-   
-   <entry>
-     <title>android辅助工具</title>
-     <link href="http://beiyuu.com/android-lint"/>
-     <updated>2014-09-25T00:00:00+08:00</updated>
-     <id>http://beiyuu.com/android-lint</id>
-     <content type="html">&lt;h2&gt;android lint工具&lt;/h2&gt;
-
-&lt;h3&gt;使用了高版本的API&lt;/h3&gt;
-
-&lt;p&gt;在开发中,常常会不小心用到了高版本的API, 这样会导致程序在低于API版本设备上崩溃. 这样的崩溃无法被catch&lt;/p&gt;
-
-&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;# 在工程目录下执行
-$ lint --check NewApi .&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
-
-
-&lt;p&gt;结果&lt;/p&gt;
-
-&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;src/com/cleanmaster/security/scan/ui/dialog/SecurityVirusDialog.java:94: Error: Call requires API level 11 (current min is 8): android.widget.TextView#setAlpha [NewApi]
-   subtitleTv.setAlpha(0.75f);
-              ~~~~~~~~
-src/com/cleanmaster/ui/widget/ShareBar.java:25: Error: Call requires API level 11 (current min is 8): new android.widget.LinearLayout [NewApi]
-        super(context, attrs, defStyle);
-        ~~~~~&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
-
-
-&lt;p&gt;然而需要注意, Lint输出的这些信息并不一定真正会出问题. 所以你需要看代码确定一下:&lt;/p&gt;
-
-&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;public void show(
-
-         if (SDKUtils.isAboveSDK14()) {
-             ///&amp;lt; 4.0以下没有这个方法，所以只在4.0及4.0以上增加以下alpha值处理
-             subtitleTv.setAlpha(0.75f);
-             }&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
-
-
-
-</content>
-   </entry>
-   
-   <entry>
-     <title>github 和jekyll方法</title>
-     <link href="http://beiyuu.com/first-commit"/>
-     <updated>2014-09-21T00:00:00+08:00</updated>
-     <id>http://beiyuu.com/first-commit</id>
-     <content type="html">&lt;h3&gt;github常用命令&lt;/h3&gt;
-
-&lt;ul&gt;
-    &lt;li&gt;git clone git@github.com:username/xxxxxx.github.com.git//本地如果无远程代码，先做这步，不然就忽略&lt;/li&gt;
-    &lt;li&gt;git pull origin master //先同步远程文件，后面的参数会自动连接你远程的文件/li&gt;
-    &lt;li&gt;git status //查看本地自己修改了多少文件&lt;/li&gt;
-    &lt;li&gt;git添加文件:git add .&lt;/li&gt;
-    &lt;li&gt;git提交文件: git commit -m &quot;first commit&quot;&lt;/li&gt;
-    &lt;li&gt;git push origin master //更新到远程服务器上&lt;/li&gt;
-&lt;/ul&gt;
-
-
-&lt;h3&gt;jekyll常用命令&lt;/h3&gt;
-
-&lt;ul&gt;
-    &lt;li&gt;jekyll打开本地服务jekyll serve&lt;/li&gt;
-    &lt;li&gt;关于jekyll的 Address already in use - bind(2):&lt;/br&gt;
-        先采用lsof -wni tcp:4000 或者使用 ps aux |grep &quot;jek&quot;&lt;/br&gt;
-        再采用kill -9 PID命令
-        &lt;/li&gt;
-    
-&lt;/ul&gt;
-
-
-&lt;h3&gt;常用adb和adb shell命令&lt;/h3&gt;
-
-&lt;ul&gt;
-    &lt;li&gt;windows平台查看端口占用:netstat -ano | findstr &quot;5037&quot; &lt;/li&gt;
-    &lt;li&gt;查看手机服务列表:adb shell service list&lt;/li&gt;
-    &lt;li&gt;查看安装列表:adb shell pm list packages&lt;/li&gt;
-    &lt;li&gt;查看安装位置:adb shell pm path pkg_name&lt;/li&gt;
-    &lt;li&gt;推送信息:adb pull pkg_path&lt;/li&gt;
-    &lt;li&gt;&lt;/li&gt;
-    &lt;li&gt;&lt;/li&gt;
-    &lt;li&gt;&lt;/li&gt;
-    
-&lt;/ul&gt;
-
-
-&lt;h3&gt;vim常用命令&lt;/h3&gt;
-
-&lt;ul&gt;
-    &lt;li&gt;复制单行:yy&lt;/li&gt;
-    &lt;li&gt;复制单个单词:yw&lt;/li&gt;
-    &lt;li&gt;粘贴单行:p&lt;/li&gt;
-    &lt;li&gt;删除单行:dd &lt;/li&gt;
-    &lt;li&gt;删除单个单词:diw&lt;/li&gt;
-&lt;/ul&gt;
-
-
-&lt;h3&gt;shell常用命令&lt;/h3&gt;
-
-&lt;ul&gt;
-    &lt;li&gt;&lt;/li&gt;
-    &lt;li&gt;&lt;/li&gt;
-    &lt;li&gt;&lt;/li&gt;
-    &lt;li&gt;&lt;/li&gt;
-&lt;/ul&gt;
-
-
-&lt;p&gt;linux上进程有5种状态:
-1. 运行(正在运行或在运行队列中等待)&lt;/br&gt;
-2. 中断(休眠中, 受阻, 在等待某个条件的形成或接受到信号)&lt;/br&gt;
-3. 不可中断(收到信号不唤醒和不可运行, 进程必须等待直到有中断发生)&lt;/br&gt;
-4. 僵死(进程已终止, 但进程描述符存在, 直到父进程调用wait4()系统调用后释放)&lt;/br&gt;
-5. 停止(进程收到SIGSTOP, SIGSTP, SIGTIN, SIGTOU信号后停止运行运行)&lt;/br&gt;&lt;/p&gt;
-
-&lt;p&gt;1）ps a 显示现行终端机下的所有程序，包括其他用户的程序。&lt;/br&gt;
-2）ps -A   显示所有程序。&lt;/br&gt;
-3）ps c    列出程序时，显示每个程序真正的指令名称，而不包含路径，参数或常驻服务的标示。&lt;/br&gt;
-4）ps -e   此参数的效果和指定&quot;A&quot;参数相同。&lt;/br&gt;
-5）ps e    列出程序时，显示每个程序所使用的环境变量。&lt;/br&gt;
-6）ps f    用ASCII字符显示树状结构，表达程序间的相互关系。&lt;/br&gt;
-7）ps -H   显示树状结构，表示程序间的相互关系。&lt;/br&gt;
-8）ps -N   显示所有的程序，除了执行ps指令终端机下的程序之外。&lt;/br&gt;
-9）ps s    采用程序信号的格式显示程序状况。&lt;/br&gt;
-10）ps S   列出程序时，包括已中断的子程序资料。&lt;/br&gt;
-11）ps -t  &amp;lt;终端机编号&gt; 　指定终端机编号，并列出属于该终端机的程序的状况。&lt;/br&gt;
-12）ps u 　以用户为主的格式来显示程序状况。&lt;/br&gt;
-13）ps x 　显示所有程序，不以终端机来区分。&lt;/br&gt;
-14）ps -l  較長,較詳細的顯示該PID的信息  &lt;/br&gt;&lt;/p&gt;
 </content>
    </entry>
    

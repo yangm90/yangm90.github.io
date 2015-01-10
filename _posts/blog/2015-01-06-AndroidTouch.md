@@ -1,7 +1,7 @@
 ---
 layout: post
-title: Android 
-description: 关于android的Activity是如何触摸事件框架简析(-)
+title: 关于android的Activity是如何触摸事件框架简析(一) 
+description: 关于android的Activity是如何触摸事件框架简析(一)
 category: blog
 ---
 最近做项目会修改导事件分发，所以对系统这部分代码进行了一定的研究，对android的框架的流的过程发出来供大家参考下.

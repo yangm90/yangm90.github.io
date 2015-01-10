@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <!--
+    * Author:        ym 
+    -->
+    <meta charset="utf-8" />
+    <title>Android | Yangming.com</title>
+    <meta name="author" content="ym" />
+    <meta name="renderer" content="webkit">
+    <meta name="description" content="ym's Blog" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0">
+    <link rel="stylesheet" href="/css/default.css" type="text/css" />
+    <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon" />
+    <link rel="alternate" type="application/atom+xml" title="Recent Entries" href="/atom.xml" />
+    <script src="/js/jquery-1.7.1.min.js" type="text/javascript"></script>
+</head>
+<body>
+
+    <div class="home-menu">
+        <div class="home-icon-con">
+            <a class="home-menu-icon" href="/">YangMing</a>
+            <a class="home-follow" href="#" title="Contact Me">+</a>
+        </div>
+		<!--
+        <div class="home-contact">
+            <a href="http://weibo.com/beiyuu/" target="_blank" style="margin-left:-5px;"><img src="http://www.weibo.com/favicon.ico" alt="" width="25"/></a>
+            <a href="http://www.douban.com/people/beiyuu/" target="_blank" style="text-align:center;"><img src="http://www.douban.com/favicon.ico" alt="" width="22"/></a>
+            <a href="http://instagram.com/beiyuu/" target="_blank" style="text-align:right"><img src="http://d36xtkk24g8jdx.cloudfront.net/bluebar/00c6602/images/ico/favicon.ico" alt="" width="22"/></a>
+        </div>
+		-->
+    </div>
+
+    <link rel="stylesheet" href="/js/prettify/prettify.css" />
+<style type="text/css">
+    body { background:#e8e8e8; }
+    @media screen and (max-width: 750px){
+        body { background:#fff; }
+    }
+    @media screen and (max-width: 1020px){
+        body { background:#fff; }
+    }
+</style>
+
+<div id="content">
+    <div class="entry">
+        <h1 class="entry-title"><a href="/AndroidTouch1" title="Android">Android</a></h1>
+        <p class="entry-date">2015-01-08</p>
+        <p>上次分析了touch事件如何传到我们的View上面了，这次分析下View是如何做分发的.
+从最基本的View层次分析</p>
+
+<h3>View的事件分发</h3>
+
+<div class="highlight"><pre><code class="language-java" data-lang="java">/**
+     * Pass the touch screen motion event down to the target view, or this
+     * view if it is the target.
+     *
+     * @param event The motion event to be dispatched.
+     * @return True if the event was handled by the view, false otherwise.
+     */
+    public boolean dispatchTouchEvent(MotionEvent event) {
+        if (mInputEventConsistencyVerifier != null) {
+            mInputEventConsistencyVerifier.onTouchEvent(event, 0);
+        }
+
+        if (onFilterTouchEventForSecurity(event)) {
+            //noinspection SimplifiableIfStatement
+            ListenerInfo li = mListenerInfo;
+            if (li != null &amp;&amp; li.mOnTouchListener != null &amp;&amp; (mViewFlags &amp; ENABLED_MASK) == ENABLED
+                    &amp;&amp; li.mOnTouchListener.onTouch(this, event)) {
+                return true;
+            }
+
+            if (onTouchEvent(event)) {
+                return true;
+            }
+        }
+
+        if (mInputEventConsistencyVerifier != null) {
+            mInputEventConsistencyVerifier.onUnhandledEvent(event, 0);
+        }
+        return false;
+    }</code></pre></div>
+
+
+<p>最先调用的是onTouch事件,如果onTouch返回True,则直接返回了,在分析下onTouchEvent发生了什么事情:</p>
+
+<div class="highlight"><pre><code class="language-java" data-lang="java">/**
+     * Implement this method to handle touch screen motion events.
+     *
+     * @param event The motion event.
+     * @return True if the event was handled, false otherwise.
+     */
+    public boolean onTouchEvent(MotionEvent event) {
+        final int viewFlags = mViewFlags;
+
+        if ((viewFlags &amp; ENABLED_MASK) == DISABLED) {
+            if (event.getAction() == MotionEvent.ACTION_UP &amp;&amp; (mPrivateFlags &amp; PFLAG_PRESSED) != 0) {
+                setPressed(false);
+            }
+            // A disabled view that is clickable still consumes the touch
+            // events, it just doesn&#39;t respond to them.
+            return (((viewFlags &amp; CLICKABLE) == CLICKABLE ||
+                    (viewFlags &amp; LONG_CLICKABLE) == LONG_CLICKABLE));
+        }
+        if (mTouchDelegate != null) {
+            if (mTouchDelegate.onTouchEvent(event)) {
+                return true;
+            }
+        }
+        if (((viewFlags &amp; CLICKABLE) == CLICKABLE ||
+                (viewFlags &amp; LONG_CLICKABLE) == LONG_CLICKABLE)) {
+            switch (event.getAction()) {
+                case MotionEvent.ACTION_UP:
+                    boolean prepressed = (mPrivateFlags &amp; PFLAG_PREPRESSED) != 0;
+                    if ((mPrivateFlags &amp; PFLAG_PRESSED) != 0 || prepressed) {
+                        // take focus if we don&#39;t have it already and we should in
+                        // touch mode.
+                        boolean focusTaken = false;
+                        if (isFocusable() &amp;&amp; isFocusableInTouchMode() &amp;&amp; !isFocused()) {
+                            focusTaken = requestFocus();
+                        }
+
+                        if (prepressed) {
+                            // The button is being released before we actually
+                            // showed it as pressed.  Make it show the pressed
+                            // state now (before scheduling the click) to ensure
+                            // the user sees it.
+                            setPressed(true);
+                       }
+
+                        if (!mHasPerformedLongPress) {
+                            // This is a tap, so remove the longpress check
+                            removeLongPressCallback();
+
+                            // Only perform take click actions if we were in the pressed state
+                            if (!focusTaken) {
+                                // Use a Runnable and post this rather than calling
+                                // performClick directly. This lets other visual state
+                                // of the view update before click actions start.
+                                if (mPerformClick == null) {
+                                    mPerformClick = new PerformClick();
+                                }
+                                if (!post(mPerformClick)) {
+                                    performClick();
+                                }
+                            }
+                        }
+
+                        if (mUnsetPressedState == null) {
+                            mUnsetPressedState = new UnsetPressedState();
+                        }
+
+                        if (prepressed) {
+                            postDelayed(mUnsetPressedState,
+                                    ViewConfiguration.getPressedStateDuration());
+                        } else if (!post(mUnsetPressedState)) {
+                            // If the post failed, unpress right now
+                            mUnsetPressedState.run();
+                        }
+                        removeTapCallback();
+                    }
+                    break;
+
+                case MotionEvent.ACTION_DOWN:
+                    mHasPerformedLongPress = false;
+
+                    if (performButtonActionOnTouchDown(event)) {
+                        break;
+                    }
+
+                    // Walk up the hierarchy to determine if we&#39;re inside a scrolling container.
+                    boolean isInScrollingContainer = isInScrollingContainer();
+
+                    // For views inside a scrolling container, delay the pressed feedback for
+                    // a short period in case this is a scroll.
+                    if (isInScrollingContainer) {
+                        mPrivateFlags |= PFLAG_PREPRESSED;
+                        if (mPendingCheckForTap == null) {
+                            mPendingCheckForTap = new CheckForTap();
+                        }
+                        postDelayed(mPendingCheckForTap, ViewConfiguration.getTapTimeout());
+                    } else {
+                        // Not inside a scrolling container, so show the feedback right away
+                        setPressed(true);
+                        checkForLongClick(0);
+                    }
+                    break;
+
+                case MotionEvent.ACTION_CANCEL:
+                    setPressed(false);
+                    removeTapCallback();
+                    removeLongPressCallback();
+                    break;
+
+                case MotionEvent.ACTION_MOVE:
+                    final int x = (int) event.getX();
+                    final int y = (int) event.getY();
+
+                    // Be lenient about moving outside of buttons
+                    if (!pointInView(x, y, mTouchSlop)) {
+                        // Outside button
+                        removeTapCallback();
+                        if ((mPrivateFlags &amp; PFLAG_PRESSED) != 0) {
+                            // Remove any future long press/tap checks
+                            removeLongPressCallback();
+
+                            setPressed(false);
+                        }
+                    }
+                    break;
+            }
+            return true;
+        }
+
+        return false;
+    }</code></pre></div>
+
+
+<p>这里值得注意的就是两个点:
+1. onclick事件是在MotionEvent.ACTION_UP的时候返回的，是在onTouch事件之后
+2. onTouchEvent返回值为True，才能接受到以后的事件，如果返回false则收不到。</p>
+
+<h3>ViewGroup的事件分发</h3>
+
+<div class="highlight"><pre><code class="language-java" data-lang="java">/**
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean dispatchTouchEvent(MotionEvent ev) {
+        if (mInputEventConsistencyVerifier != null) {
+            mInputEventConsistencyVerifier.onTouchEvent(ev, 1);
+        }
+
+        boolean handled = false;
+        if (onFilterTouchEventForSecurity(ev)) {
+            final int action = ev.getAction();
+            final int actionMasked = action &amp; MotionEvent.ACTION_MASK;
+
+            // Handle an initial down.
+            if (actionMasked == MotionEvent.ACTION_DOWN) {
+                // Throw away all previous state when starting a new touch gesture.
+                // The framework may have dropped the up or cancel event for the previous gesture
+                // due to an app switch, ANR, or some other state change.
+                cancelAndClearTouchTargets(ev);
+                resetTouchState();
+            }
+
+            // Check for interception.
+            final boolean intercepted;
+            if (actionMasked == MotionEvent.ACTION_DOWN
+                    || mFirstTouchTarget != null) {
+                final boolean disallowIntercept = (mGroupFlags &amp; FLAG_DISALLOW_INTERCEPT) != 0;
+                if (!disallowIntercept) {
+                    intercepted = onInterceptTouchEvent(ev);
+                    ev.setAction(action); // restore action in case it was changed
+                } else {
+                    intercepted = false;
+                }
+            } else {
+                // There are no touch targets and this action is not an initial down
+                // so this view group continues to intercept touches.
+                intercepted = true;
+            }
+
+            // Check for cancelation.
+            final boolean canceled = resetCancelNextUpFlag(this)
+                    || actionMasked == MotionEvent.ACTION_CANCEL;
+
+            // Update list of touch targets for pointer down, if needed.
+            final boolean split = (mGroupFlags &amp; FLAG_SPLIT_MOTION_EVENTS) != 0;
+            TouchTarget newTouchTarget = null;
+            boolean alreadyDispatchedToNewTouchTarget = false;
+            if (!canceled &amp;&amp; !intercepted) {
+                if (actionMasked == MotionEvent.ACTION_DOWN
+                        || (split &amp;&amp; actionMasked == MotionEvent.ACTION_POINTER_DOWN)
+                        || actionMasked == MotionEvent.ACTION_HOVER_MOVE) {
+                    final int actionIndex = ev.getActionIndex(); // always 0 for down
+                    final int idBitsToAssign = split ? 1 &lt;&lt; ev.getPointerId(actionIndex)
+                            : TouchTarget.ALL_POINTER_IDS;
+
+                    // Clean up earlier touch targets for this pointer id in case they
+                    // have become out of sync.
+                    removePointersFromTouchTargets(idBitsToAssign);
+
+                    final int childrenCount = mChildrenCount;
+                    if (childrenCount != 0) {
+                        // Find a child that can receive the event.
+                        // Scan children from front to back.
+                        final View[] children = mChildren;
+                        final float x = ev.getX(actionIndex);
+                        final float y = ev.getY(actionIndex);
+
+                        final boolean customOrder = isChildrenDrawingOrderEnabled();
+                        for (int i = childrenCount - 1; i &gt;= 0; i--) {
+                            final int childIndex = customOrder ?
+                                    getChildDrawingOrder(childrenCount, i) : i;
+                            final View child = children[childIndex];
+                            if (!canViewReceivePointerEvents(child)
+                                    || !isTransformedTouchPointInView(x, y, child, null)) {
+                                continue;
+                            }
+
+                            newTouchTarget = getTouchTarget(child);
+                            if (newTouchTarget != null) {
+                                // Child is already receiving touch within its bounds.
+                                // Give it the new pointer in addition to the ones it is handling.
+                                newTouchTarget.pointerIdBits |= idBitsToAssign;
+                                break;
+                            }
+
+                            resetCancelNextUpFlag(child);
+                            if (dispatchTransformedTouchEvent(ev, false, child, idBitsToAssign)) {
+                                // Child wants to receive touch within its bounds.
+                                mLastTouchDownTime = ev.getDownTime();
+                                mLastTouchDownIndex = childIndex;
+                                mLastTouchDownX = ev.getX();
+                                mLastTouchDownY = ev.getY();
+                                newTouchTarget = addTouchTarget(child, idBitsToAssign);
+                                alreadyDispatchedToNewTouchTarget = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (newTouchTarget == null &amp;&amp; mFirstTouchTarget != null) {
+                        // Did not find a child to receive the event.
+                        // Assign the pointer to the least recently added target.
+                        newTouchTarget = mFirstTouchTarget;
+                        while (newTouchTarget.next != null) {
+                            newTouchTarget = newTouchTarget.next;
+                        }
+                        newTouchTarget.pointerIdBits |= idBitsToAssign;
+                    }
+                }
+            }
+
+            // Dispatch to touch targets.
+            if (mFirstTouchTarget == null) {
+                // No touch targets so treat this as an ordinary view.
+                handled = dispatchTransformedTouchEvent(ev, canceled, null,
+                        TouchTarget.ALL_POINTER_IDS);
+            } else {
+                // Dispatch to touch targets, excluding the new touch target if we already
+                // dispatched to it.  Cancel touch targets if necessary.
+                TouchTarget predecessor = null;
+                TouchTarget target = mFirstTouchTarget;
+                while (target != null) {
+                    final TouchTarget next = target.next;
+                    if (alreadyDispatchedToNewTouchTarget &amp;&amp; target == newTouchTarget) {
+                        handled = true;
+                    } else {
+                        final boolean cancelChild = resetCancelNextUpFlag(target.child)
+                        || intercepted;
+                        if (dispatchTransformedTouchEvent(ev, cancelChild,
+                                target.child, target.pointerIdBits)) {
+                            handled = true;
+                        }
+                        if (cancelChild) {
+                            if (predecessor == null) {
+                                mFirstTouchTarget = next;
+                            } else {
+                                predecessor.next = next;
+                            }
+                            target.recycle();
+                            target = next;
+                            continue;
+                        }
+                    }
+                    predecessor = target;
+                    target = next;
+                }
+            }
+
+            // Update list of touch targets for pointer up or cancel, if needed.
+            if (canceled
+                    || actionMasked == MotionEvent.ACTION_UP
+                    || actionMasked == MotionEvent.ACTION_HOVER_MOVE) {
+                resetTouchState();
+            } else if (split &amp;&amp; actionMasked == MotionEvent.ACTION_POINTER_UP) {
+                final int actionIndex = ev.getActionIndex();
+                final int idBitsToRemove = 1 &lt;&lt; ev.getPointerId(actionIndex);
+                removePointersFromTouchTargets(idBitsToRemove);
+            }
+        }
+
+        if (!handled &amp;&amp; mInputEventConsistencyVerifier != null) {
+            mInputEventConsistencyVerifier.onUnhandledEvent(ev, 1);
+        }
+        return handled;
+    }</code></pre></div>
+
+
+<p>代码很长，但是阅读完我们可以发现几点问题:
+1.允许ViewGroup去做事件拦截通过方法onInterceptTouchEvent()，使用requestDisallowInterceptTouchEvent方法可以设置是否允许拦截touch事件。
+2.onInterceptTouchEvent返回false的时候，会对事件进行分发，分发到子View上面。如果是某个子View是target,则调用子View的DdispatchTouchEvent，否则调用自身的super.dispatchTouchEvent方法。</p>
+
+<h3>Activity的事件分发</h3>
+
+<p>之前的文章就很明显的告诉我们ViewRootImpl会调用设置的mView，那么mView到底是什么呢？
+回顾Activity代码:</p>
+
+<div class="highlight"><pre><code class="language-java" data-lang="java">/**
+     * Set the activity content from a layout resource.  The resource will be
+     * inflated, adding all top-level views to the activity.
+     *
+     * @param layoutResID Resource ID to be inflated.
+     * 
+     * @see #setContentView(android.view.View)
+     * @see #setContentView(android.view.View, android.view.ViewGroup.LayoutParams)
+     */
+    public void setContentView(int layoutResID) {
+        getWindow().setContentView(layoutResID);
+        initActionBar();
+    }</code></pre></div>
+
+
+<p>这里getWindow获取的是PhoneWindow的实例，其setContentView如下：</p>
+
+<div class="highlight"><pre><code class="language-java" data-lang="java">@Override
+    public void setContentView(int layoutResID) {
+        if (mContentParent == null) {
+            installDecor();
+        } else {
+            mContentParent.removeAllViews();
+        }
+        mLayoutInflater.inflate(layoutResID, mContentParent);
+        final Callback cb = getCallback();
+        if (cb != null &amp;&amp; !isDestroyed()) {
+            cb.onContentChanged();
+        }
+    }</code></pre></div>
+
+
+<p>可以看到传入的布局文件最终会展开并作为mContentParent的子View。那么mContentParent又是怎么产生的？看下installDecor方法：</p>
+
+<div class="highlight"><pre><code class="language-java" data-lang="java">private void installDecor() {
+        if (mDecor == null) {
+            mDecor = generateDecor();
+            mDecor.setDescendantFocusability(ViewGroup.FOCUS_AFTER_DESCENDANTS);
+            mDecor.setIsRootNamespace(true);
+            if (!mInvalidatePanelMenuPosted &amp;&amp; mInvalidatePanelMenuFeatures != 0) {
+                mDecor.postOnAnimation(mInvalidatePanelMenuRunnable);
+            }
+        }
+        if (mContentParent == null) {
+            mContentParent = generateLayout(mDecor);
+
+            // Set up decor part of UI to ignore fitsSystemWindows if appropriate.
+            mDecor.makeOptionalFitsSystemWindows();
+            .......
+        }
+    }</code></pre></div>
+
+
+<p>这里通过generateLayout 创建了mContentParent，这个generateLayout是干嘛的呢？</p>
+
+<div class="highlight"><pre><code class="language-java" data-lang="java">protected ViewGroup generateLayout(DecorView decor) {
+            ......
+    // Inflate the window decor.
+
+        int layoutResource;
+        int features = getLocalFeatures();
+        ......
+        mDecor.startChanging();
+
+        View in = mLayoutInflater.inflate(layoutResource, null);
+        decor.addView(in, new ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT));
+
+        ViewGroup contentParent = (ViewGroup)findViewById(ID_ANDROID_CONTENT);
+        if (contentParent == null) {
+            throw new RuntimeException(&quot;Window couldn&#39;t find content container view&quot;);
+        }
+
+        if ((features &amp; (1 &lt;&lt; FEATURE_INDETERMINATE_PROGRESS)) != 0) {
+            ProgressBar progress = getCircularProgressBar(false);
+            if (progress != null) {
+                progress.setIndeterminate(true);
+            }
+        }
+
+        .........
+        mDecor.finishChanging();
+        return contentParent;
+}</code></pre></div>
+
+
+<p>可以看出，Activity中，最上层为DecorView，mContentParent为DecorView中id为Window.ID_ANDROID_CONTENT的子View，而我们通过setContentView方法传入的布局文件则是mContentParent的子View。所以之前看过的mView，其实就是DecorView的一个实例，看下DecorView的dispatchTouchEvent:</p>
+
+<div class="highlight"><pre><code class="language-java" data-lang="java">@Override
+        public boolean dispatchKeyEvent(KeyEvent event) {
+            if (!isDestroyed()) {
+                final Callback cb = getCallback();
+                final boolean handled = cb != null &amp;&amp; mFeatureId &lt; 0 ? cb.dispatchKeyEvent(event)
+                        : super.dispatchKeyEvent(event);
+                if (handled) {
+                    return true;
+                }
+            }
+
+            return isDown ? PhoneWindow.this.onKeyDown(mFeatureId, event.getKeyCode(), event)
+                    : PhoneWindow.this.onKeyUp(mFeatureId, event.getKeyCode(), event);
+        }</code></pre></div>
+
+
+<p>这里的callback就是Activity，所以调用的就是Activity的dispatchKeyEvent().</p>
+
+<div class="highlight"><pre><code class="language-java" data-lang="java">/**
+     * Called to process touch screen events.  You can override this to
+     * intercept all touch screen events before they are dispatched to the
+     * window.  Be sure to call this implementation for touch screen events
+     * that should be handled normally.
+     * 
+     * @param ev The touch screen event.
+     * 
+     * @return boolean Return true if this event was consumed.
+     */
+    public boolean dispatchTouchEvent(MotionEvent ev) {
+        if (ev.getAction() == MotionEvent.ACTION_DOWN) {
+            onUserInteraction();
+        }
+        if (getWindow().superDispatchTouchEvent(ev)) {
+            return true;
+        }
+        return onTouchEvent(ev);
+    }</code></pre></div>
+
+
+<p>先调用的DecorView的superDispatchTouchEvent：</p>
+
+<div class="highlight"><pre><code class="language-java" data-lang="java">public boolean superDispatchTouchEvent(MotionEvent event) {
+            return super.dispatchTouchEvent(event);
+        }</code></pre></div>
+
+
+<p>这里就算分析完了，DecorView其实就是一个FrameLayout。</p>
+
+<h3>结论</h3>
+
+<p>1.我们可以发现大体的顺序是这样的 Activity  ---->  ViewGroup  ---->  View 通过这样的模型进行消息分发的。
+2. onTouch事件都是在 onTouchEvent之前的 设置为True了 事件就不会往下传。
+3.修改onTouchEvent事件的返回值可能对下次的事件有影响，改为false可能以后都收不到了。</p>
+
+<h3>参考blog</h3>
+
+
+        <div id="disqus_container">
+            <div style="margin-bottom:20px" class="right">
+                <script type="text/javascript" charset="utf-8">
+                (function(){
+                  var _w = 86 , _h = 16;
+                  var param = {
+                    url:location.href,
+                    type:'6',
+                    count:'', /**是否显示分享数，1显示(可选)*/
+                    appkey:'', /**您申请的应用appkey,显示分享来源(可选)*/
+                    title:'', /**分享的文字内容(可选，默认为所在页面的title)*/
+                    pic:'', /**分享图片的路径(可选)*/
+                    ralateUid:'1855270953', /**关联用户的UID，分享微博会@该用户(可选)*/
+                    language:'zh_cn', /**设置语言，zh_cn|zh_tw(可选)*/
+                    rnd:new Date().valueOf()
+                  }
+                  var temp = [];
+                  for( var p in param ){
+                    temp.push(p + '=' + encodeURIComponent( param[p] || '' ) )
+                  }
+                  document.write('<iframe allowTransparency="true" frameborder="0" scrolling="no" src="http://hits.sinajs.cn/A1/weiboshare.html?' + temp.join('&') + '" width="'+ _w+'" height="'+_h+'"></iframe>')
+                })()
+                </script>
+            </div>
+            <a href="#" class="comment" onclick="return false;">点击查看评论</a>
+            <div id="disqus_thread"></div>
+        </div>
+    </div>
+
+    <!--<div class="sidenav">
+        <iframe width="100%" height="75" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=75&fansRow=2&ptype=1&speed=0&skin=5&isTitle=0&noborder=0&isWeibo=0&isFans=0&uid=1855270953&verifier=375b89d6&dpc=1"></iframe>
+    </div> -->
+
+    <div class="sidenav">
+        <h2>Blog</h2>
+        <ul class="artical-list">
+        
+            <li><a href="/AndroidTouch1">Android</a></li>
+        
+            <li><a href="/AndroidTouch">Android</a></li>
+        
+            <li><a href="/AndroidCanvas">Android图形的知识</a></li>
+        
+            <li><a href="/android-Alpha">android中如何高效的使用alpha属性</a></li>
+        
+            <li><a href="/view">android的View绘制</a></li>
+        
+            <li><a href="/ndk">android的NDK调试常见问题</a></li>
+        
+            <li><a href="/git-svn">git和SVN配合</a></li>
+        
+            <li><a href="/sqlite-efficiency">关于java String的匹配问题</a></li>
+        
+            <li><a href="/java-String">关于java String的匹配问题</a></li>
+        
+            <li><a href="/andoird-ant">ant打包策略</a></li>
+        
+            <li><a href="/android-diandi">android的ListView常见问题</a></li>
+        
+            <li><a href="/android_L">androidL预言</a></li>
+        
+            <li><a href="/android-lint">android辅助工具</a></li>
+        
+            <li><a href="/first-commit">github 和jekyll方法</a></li>
+        
+            <li><a href="/vps-config-python-vitrualenv-flask-gunicorn-supervisor-nginx">VPS环境搭建详解 (Virtualenv+Gunicorn+Supervisor+Nginx)</a></li>
+        
+            <li><a href="/css3-animation">CSS3动画详解</a></li>
+        
+        </ul>
+
+        <h2>Opinion</h2>
+        <ul class="artical-list">
+        
+            <li><a href="/douban-fm">豆瓣FM(iOS 3.0)使用体会</a></li>
+        
+            <li><a href="/jobs-interview">史蒂夫·乔布斯：遗失的访谈</a></li>
+        
+            <li><a href="/40-ama-55-grammy">40届全美音乐奖和55届格莱美颁奖演出观感</a></li>
+        
+            <li><a href="/build-facebook">只有好的棋手才会走运</a></li>
+        
+            <li><a href="/bad-list-design">令人焦虑的列表设计</a></li>
+        
+            <li><a href="/about-simplify">胡言乱语说简单</a></li>
+        
+            <li><a href="/auto-edit-bar">随内容滚动隐藏的工具栏</a></li>
+        
+            <li><a href="/side-slide">如果侧滑成为APP标配</a></li>
+        
+            <li><a href="/needs-video">谈谈刚需和360影视</a></li>
+        
+        </ul>
+
+        <h2>Project</h2>
+        <ul class="artical-list">
+        
+            <li><a href="/tabby">Tabby</a></li>
+        
+            <li><a href="/notty-notes">Notty Notes</a></li>
+        
+            <li><a href="/overapi-cheatsheet">OverAPI</a></li>
+        
+            <li><a href="/raining-in-chrome">听雨</a></li>
+        
+        </ul>
+    </div>
+</div>
+
+<script src="/js/post.js" type="text/javascript"></script>
+
+
+    <!--*********************************************************-->
+    <!--****** 宝贝儿，看见这个时候，删掉下面的统计代码哦~ ******-->
+    <!--************* 再推荐下我的第一篇博客哦~~ ****************-->
+    <!--*********************************************************-->
+
+    <div class="hide">
+        <script type="text/javascript" src="http://js.tongji.linezing.com/2727758/tongji.js"></script>
+        <noscript><a href="http://www.linezing.com"><img src="http://img.tongji.linezing.com/2727758/tongji.gif"/></a></noscript>
+    </div>
+    <script type="text/javascript">
+        $(function(){
+            $('.home-follow').click(function(e){
+                e.preventDefault();
+
+                if($('.home-contact').is(':visible')){
+                    $('.home-contact').slideUp(100);
+                }else{
+                    $('.home-contact').slideDown(100);
+                }
+            });
+        })
+    </script>
+</body>
+</html>

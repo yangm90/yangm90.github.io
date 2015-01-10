@@ -1,9 +1,10 @@
 ---
 layout: post
-title: Android 
+title: 关于android的Activity是如何触摸事件框架简析(二) 
 description: 关于android的Activity是如何触摸事件框架简析(二)
 category: blog
 ---
+
 上次分析了touch事件如何传到我们的View上面了，这次分析下View是如何做分发的.
 从最基本的View层次分析
 ### View的事件分发
@@ -493,7 +494,8 @@ category: blog
 
 
 
-	{% highlight java linenos %i}
+	{% highlight java linenos %}
+
 	public boolean superDispatchTouchEvent(MotionEvent event) {
             return super.dispatchTouchEvent(event);
         }

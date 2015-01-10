@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <!--
+    * Author:        ym 
+    -->
+    <meta charset="utf-8" />
+    <title>Android | Yangming.com</title>
+    <meta name="author" content="ym" />
+    <meta name="renderer" content="webkit">
+    <meta name="description" content="ym's Blog" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0">
+    <link rel="stylesheet" href="/css/default.css" type="text/css" />
+    <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon" />
+    <link rel="alternate" type="application/atom+xml" title="Recent Entries" href="/atom.xml" />
+    <script src="/js/jquery-1.7.1.min.js" type="text/javascript"></script>
+</head>
+<body>
+
+    <div class="home-menu">
+        <div class="home-icon-con">
+            <a class="home-menu-icon" href="/">YangMing</a>
+            <a class="home-follow" href="#" title="Contact Me">+</a>
+        </div>
+		<!--
+        <div class="home-contact">
+            <a href="http://weibo.com/beiyuu/" target="_blank" style="margin-left:-5px;"><img src="http://www.weibo.com/favicon.ico" alt="" width="25"/></a>
+            <a href="http://www.douban.com/people/beiyuu/" target="_blank" style="text-align:center;"><img src="http://www.douban.com/favicon.ico" alt="" width="22"/></a>
+            <a href="http://instagram.com/beiyuu/" target="_blank" style="text-align:right"><img src="http://d36xtkk24g8jdx.cloudfront.net/bluebar/00c6602/images/ico/favicon.ico" alt="" width="22"/></a>
+        </div>
+		-->
+    </div>
+
+    <link rel="stylesheet" href="/js/prettify/prettify.css" />
+<style type="text/css">
+    body { background:#e8e8e8; }
+    @media screen and (max-width: 750px){
+        body { background:#fff; }
+    }
+    @media screen and (max-width: 1020px){
+        body { background:#fff; }
+    }
+</style>
+
+<div id="content">
+    <div class="entry">
+        <h1 class="entry-title"><a href="/AndroidTouch" title="Android">Android</a></h1>
+        <p class="entry-date">2015-01-06</p>
+        <p>最近做项目会修改导事件分发，所以对系统这部分代码进行了一定的研究，对android的框架的流的过程发出来供大家参考下.
+所有代码研究基于android4.2.2_R1</p>
+
+<h3>Activity与windowMnager打交道的过程</h3>
+
+<pre><code>首先是我们如何开启一个ActivityThread的，在ActivityThread中我们做了什么:
+</code></pre>
+
+<p>在ActivityThread中会最先调用的是handleLaunchActivity-->handleResumeActivity;</p>
+
+<div class="highlight"><pre><code class="language-java" data-lang="java">final void handleResumeActivity(IBinder token, boolean clearHide, boolean isForward,
+            boolean reallyResume) {
+        .......
+        if (r.window == null &amp;&amp; !a.mFinished &amp;&amp; willBeVisible) {
+                r.window = r.activity.getWindow();
+                View decor = r.window.getDecorView();
+                decor.setVisibility(View.INVISIBLE);
+                ViewManager wm = a.getWindowManager();
+                WindowManager.LayoutParams l = r.window.getAttributes();
+                a.mDecor = decor;
+                l.type = WindowManager.LayoutParams.TYPE_BASE_APPLICATION;
+                l.softInputMode |= forwardBit;
+                if (a.mVisibleFromClient) {
+                    a.mWindowAdded = true;
+                    wm.addView(decor, l);
+                }
+        ......
+
+    }</code></pre></div>
+
+
+<p>核心代码就是上面的通过windowManager添加View,
+这里的wm实体其实是<em>WindowMnagerGlobal</em>,查看addView:</p>
+
+<div class="highlight"><pre><code class="language-java" data-lang="java">public void addView(View view, ViewGroup.LayoutParams params,
+            Display display, Window parentWindow) {
+        
+        ......
+        ViewRootImpl root;
+        View panelParentView = null;
+        root = new ViewRootImpl(view.getContext(), display);
+        view.setLayoutParams(wparams);
+        ......
+        // do this last because it fires off messages to start doing things
+        try {
+            root.setView(view, wparams, panelParentView);
+        } catch (RuntimeException e) {
+            // BadTokenException or InvalidDisplayException, clean up.
+            synchronized (mLock) {
+                final int index = findViewLocked(view, false);
+                if (index &gt;= 0) {
+                    removeViewLocked(index, true);
+                }
+            }
+            throw e;
+        }
+}</code></pre></div>
+
+
+<p>这里是new出了一个新的ViewRootImpl调用了setView方法:
+ViewRootImpl.java</p>
+
+<div class="highlight"><pre><code class="language-java" data-lang="java">/**
+     * We have one child
+     */
+    public void setView(View view, WindowManager.LayoutParams attrs, View panelParentView) {
+            ......
+            try {
+                    mOrigWindowType = mWindowAttributes.type;
+                    mAttachInfo.mRecomputeGlobalAttributes = true;
+                    collectViewAttributes();
+                    res = mWindowSession.addToDisplay(mWindow, mSeq, mWindowAttributes,
+                            getHostVisibility(), mDisplay.getDisplayId(),
+                            mAttachInfo.mContentInsets, mInputChannel);
+                } catch (RemoteException e) {
+                    mAdded = false;
+                    mView = null;
+                    mAttachInfo.mRootView = null;
+                    mInputChannel = null;
+                    mFallbackEventHandler.setView(null);
+                    unscheduleTraversals();
+                    setAccessibilityFocus(null, null);
+                    throw new RuntimeException(&quot;Adding window failed&quot;, e);
+                } finally {
+                    if (restore) {
+                        attrs.restore();
+                    }
+                }
+            .......
+            if (mInputChannel != null) {
+                    if (mInputQueueCallback != null) {
+                        mInputQueue = new InputQueue(mInputChannel);
+                        mInputQueueCallback.onInputQueueCreated(mInputQueue);
+                    } else {
+                        mInputEventReceiver = new WindowInputEventReceiver(mInputChannel,
+                                Looper.myLooper());
+                    }
+                }
+}</code></pre></div>
+
+
+<p>核心代码就是 mWindowSession.addToDisplay(),</p>
+
+<div class="highlight"><pre><code class="language-java" data-lang="java">@Override
+    public int addToDisplay(IWindow window, int seq, WindowManager.LayoutParams attrs,
+            int viewVisibility, int displayId, Rect outContentInsets,
+            InputChannel outInputChannel) {
+        return mService.addWindow(this, window, seq, attrs, viewVisibility, displayId,
+                outContentInsets, outInputChannel);
+    }</code></pre></div>
+
+
+<p>就是一个aidl调用，最终是调用的WindowManagerService的addWindow方法：</p>
+
+<div class="highlight"><pre><code class="language-java" data-lang="java">public int addWindow(Session session, IWindow client, int seq,
+            WindowManager.LayoutParams attrs, int viewVisibility, int displayId,
+            Rect outContentInsets, InputChannel outInputChannel) {
+
+        ......
+        if (outInputChannel != null &amp;&amp; (attrs.inputFeatures
+                    &amp; WindowManager.LayoutParams.INPUT_FEATURE_NO_INPUT_CHANNEL) == 0) {
+                String name = win.makeInputChannelName();
+                InputChannel[] inputChannels = InputChannel.openInputChannelPair(name);
+                win.setInputChannel(inputChannels[0]);
+                inputChannels[1].transferTo(outInputChannel);
+
+                mInputManager.registerInputChannel(win.mInputChannel, win.mInputWindowHandle);
+            }
+        ......
+    }</code></pre></div>
+
+
+<p>这里打开了一对inputChannel一个作为server端，一个作为client端，并且注册到inputManager里头.这个inputChannel其实就是pipe,我们看看他们是怎么生成的：
+inputChannel.java</p>
+
+<div class="highlight"><pre><code class="language-java" data-lang="java">/**
+     * Creates a new input channel pair.  One channel should be provided to the input
+     * dispatcher and the other to the application&#39;s input queue.
+     * @param name The descriptive (non-unique) name of the channel pair.
+     * @return A pair of input channels.  They are symmetric and indistinguishable.
+     */
+    public static InputChannel[] openInputChannelPair(String name) {
+        if (name == null) {
+            throw new IllegalArgumentException(&quot;name must not be null&quot;);
+        }
+
+        if (DEBUG) {
+            Slog.d(TAG, &quot;Opening input channel pair &#39;&quot; + name + &quot;&#39;&quot;);
+        }
+        return nativeOpenInputChannelPair(name);
+    }</code></pre></div>
+
+
+<p>natvie层对应代码：
+android_view_inputchannel.cpp</p>
+
+<div class="highlight"><pre><code class="language-java" data-lang="java">static jobjectArray android_view_InputChannel_nativeOpenInputChannelPair(JNIEnv* env,
+        jclass clazz, jstring nameObj) {
+    const char* nameChars = env-&gt;GetStringUTFChars(nameObj, NULL);
+    String8 name(nameChars);
+    env-&gt;ReleaseStringUTFChars(nameObj, nameChars);
+
+    sp&lt;InputChannel&gt; serverChannel;
+    sp&lt;InputChannel&gt; clientChannel;
+    status_t result = InputChannel::openInputChannelPair(name, serverChannel, clientChannel);
+
+    if (result) {
+        String8 message;
+        message.appendFormat(&quot;Could not open input channel pair.  status=%d&quot;, result);
+        jniThrowRuntimeException(env, message.string());
+        return NULL;
+    }
+
+    jobjectArray channelPair = env-&gt;NewObjectArray(2, gInputChannelClassInfo.clazz, NULL);
+    if (env-&gt;ExceptionCheck()) {
+        return NULL;
+    }
+
+    jobject serverChannelObj = android_view_InputChannel_createInputChannel(env,
+            new NativeInputChannel(serverChannel));
+    if (env-&gt;ExceptionCheck()) {
+        return NULL;
+    }
+
+    jobject clientChannelObj = android_view_InputChannel_createInputChannel(env,
+            new NativeInputChannel(clientChannel));
+    if (env-&gt;ExceptionCheck()) {
+        return NULL;
+    }
+
+    env-&gt;SetObjectArrayElement(channelPair, 0, serverChannelObj);
+    env-&gt;SetObjectArrayElement(channelPair, 1, clientChannelObj);
+    return channelPair;
+}</code></pre></div>
+
+
+<p>主要关注函数openInputChannelPair</p>
+
+<div class="highlight"><pre><code class="language-java" data-lang="java">status_t InputChannel::openInputChannelPair(const String8&amp; name,
+        sp&lt;InputChannel&gt;&amp; outServerChannel, sp&lt;InputChannel&gt;&amp; outClientChannel) {
+    int sockets[2];
+    if (socketpair(AF_UNIX, SOCK_SEQPACKET, 0, sockets)) {
+        status_t result = -errno;
+        ALOGE(&quot;channel &#39;%s&#39; ~ Could not create socket pair.  errno=%d&quot;,
+                name.string(), errno);
+        outServerChannel.clear();
+        outClientChannel.clear();
+        return result;
+    }
+
+    int bufferSize = SOCKET_BUFFER_SIZE;
+    setsockopt(sockets[0], SOL_SOCKET, SO_SNDBUF, &amp;bufferSize, sizeof(bufferSize));
+    setsockopt(sockets[0], SOL_SOCKET, SO_RCVBUF, &amp;bufferSize, sizeof(bufferSize));
+    setsockopt(sockets[1], SOL_SOCKET, SO_SNDBUF, &amp;bufferSize, sizeof(bufferSize));
+    setsockopt(sockets[1], SOL_SOCKET, SO_RCVBUF, &amp;bufferSize, sizeof(bufferSize));
+
+    String8 serverChannelName = name;
+    serverChannelName.append(&quot; (server)&quot;);
+    outServerChannel = new InputChannel(serverChannelName, sockets[0]);
+
+    String8 clientChannelName = name;
+    clientChannelName.append(&quot; (client)&quot;);
+    outClientChannel = new InputChannel(clientChannelName, sockets[1]);
+    return OK;
+}</code></pre></div>
+
+
+<p>这里就可以发现双方是通过一个共享内存，socket的方式通信。这时候我们就已经初步的了解 Activity与windowManagerService是如何建立联系的.</p>
+
+<h3>Activity接收事件过程</h3>
+
+<p>在ViewRootImpl中，我们会创建一个WindowInputEventReceiver，WindowInputEventReceiver的初始化会使用inputchannel和主线程的looper,继承于InputEventReceiver:</p>
+
+<div class="highlight"><pre><code class="language-java" data-lang="java">**
+     * Creates an input event receiver bound to the specified input channel.
+     *
+     * @param inputChannel The input channel.
+     * @param looper The looper to use when invoking callbacks.
+     */
+    public InputEventReceiver(InputChannel inputChannel, Looper looper) {
+        if (inputChannel == null) {
+            throw new IllegalArgumentException(&quot;inputChannel must not be null&quot;);
+        }
+        if (looper == null) {
+            throw new IllegalArgumentException(&quot;looper must not be null&quot;);
+        }
+
+        mInputChannel = inputChannel;
+        mMessageQueue = looper.getQueue();
+        mReceiverPtr = nativeInit(this, inputChannel, mMessageQueue);
+
+        mCloseGuard.open(&quot;dispose&quot;);
+    }</code></pre></div>
+
+
+<p>会调用底层的nativeInit：
+android_view_InputEventReceiver.cpp</p>
+
+<div class="highlight"><pre><code class="language-java" data-lang="java">static jint nativeInit(JNIEnv* env, jclass clazz, jobject receiverObj,
+        jobject inputChannelObj, jobject messageQueueObj) {
+    sp&lt;InputChannel&gt; inputChannel = android_view_InputChannel_getInputChannel(env,
+            inputChannelObj);
+    if (inputChannel == NULL) {
+        jniThrowRuntimeException(env, &quot;InputChannel is not initialized.&quot;);
+        return 0;
+    }
+
+    sp&lt;MessageQueue&gt; messageQueue = android_os_MessageQueue_getMessageQueue(env, messageQueueObj);
+    if (messageQueue == NULL) {
+        jniThrowRuntimeException(env, &quot;MessageQueue is not initialized.&quot;);
+        return 0;
+    }
+
+    sp&lt;NativeInputEventReceiver&gt; receiver = new NativeInputEventReceiver(env,
+            receiverObj, inputChannel, messageQueue);
+    status_t status = receiver-&gt;initialize();
+    if (status) {
+        String8 message;
+        message.appendFormat(&quot;Failed to initialize input event receiver.  status=%d&quot;, status);
+        jniThrowRuntimeException(env, message.string());
+        return 0;
+    }
+
+    receiver-&gt;incStrong(gInputEventReceiverClassInfo.clazz); // retain a reference for the object
+    return reinterpret_cast&lt;jint&gt;(receiver.get());
+}</code></pre></div>
+
+
+<p>这里其实是拿到上层的looper和上层的inputchannel去生成一个NativeInputEventReceiver，在看看NativeInputEventReceiver的作用:</p>
+
+<div class="highlight"><pre><code class="language-java" data-lang="java">NativeInputEventReceiver::NativeInputEventReceiver(JNIEnv* env,
+        jobject receiverObj, const sp&lt;InputChannel&gt;&amp; inputChannel,
+        const sp&lt;MessageQueue&gt;&amp; messageQueue) :
+        mReceiverObjGlobal(env-&gt;NewGlobalRef(receiverObj)),
+        mInputConsumer(inputChannel), mMessageQueue(messageQueue),
+        mBatchedInputEventPending(false) {
+#if DEBUG_DISPATCH_CYCLE
+    ALOGD(&quot;channel &#39;%s&#39; ~ Initializing input event receiver.&quot;, getInputChannelName());
+#endif
+}</code></pre></div>
+
+
+
+
+<div class="highlight"><pre><code class="language-java" data-lang="java">status_t NativeInputEventReceiver::initialize() {
+    int receiveFd = mInputConsumer.getChannel()-&gt;getFd();
+    mMessageQueue-&gt;getLooper()-&gt;addFd(receiveFd, 0, ALOOPER_EVENT_INPUT, this, NULL);
+    return OK;
+}</code></pre></div>
+
+
+<p>NativeInputEventReceiver实际上就是生成了一个mInputConsumer,并且调用initialize，将inputChannel的fd挂载到looper中去监听事件，回调函数为handleEvent：</p>
+
+<div class="highlight"><pre><code class="language-java" data-lang="java">int NativeInputEventReceiver::handleEvent(int receiveFd, int events, void* data) {
+    if (events &amp; (ALOOPER_EVENT_ERROR | ALOOPER_EVENT_HANGUP)) {
+        ALOGE(&quot;channel &#39;%s&#39; ~ Publisher closed input channel or an error occurred.  &quot;
+                &quot;events=0x%x&quot;, getInputChannelName(), events);
+        return 0; // remove the callback
+    }
+
+    if (!(events &amp; ALOOPER_EVENT_INPUT)) {
+        ALOGW(&quot;channel &#39;%s&#39; ~ Received spurious callback for unhandled poll event.  &quot;
+                &quot;events=0x%x&quot;, getInputChannelName(), events);
+        return 1;
+    }
+
+    JNIEnv* env = AndroidRuntime::getJNIEnv();
+    status_t status = consumeEvents(env, false /*consumeBatches*/, -1);
+    mMessageQueue-&gt;raiseAndClearException(env, &quot;handleReceiveCallback&quot;);
+    return status == OK || status == NO_MEMORY ? 1 : 0;
+}</code></pre></div>
+
+
+
+
+<div class="highlight"><pre><code class="language-java" data-lang="java">status_t NativeInputEventReceiver::consumeEvents(JNIEnv* env,
+        bool consumeBatches, nsecs_t frameTime) {
+    .......
+        if (!skipCallbacks) {
+            jobject inputEventObj;
+            switch (inputEvent-&gt;getType()) {
+            case AINPUT_EVENT_TYPE_KEY:
+#if DEBUG_DISPATCH_CYCLE
+                ALOGD(&quot;channel &#39;%s&#39; ~ Received key event.&quot;, getInputChannelName());
+#endif
+                inputEventObj = android_view_KeyEvent_fromNative(env,
+                        static_cast&lt;KeyEvent*&gt;(inputEvent));
+                break;
+
+            case AINPUT_EVENT_TYPE_MOTION:
+#if DEBUG_DISPATCH_CYCLE
+                ALOGD(&quot;channel &#39;%s&#39; ~ Received motion event.&quot;, getInputChannelName());
+#endif
+                inputEventObj = android_view_MotionEvent_obtainAsCopy(env,
+                        static_cast&lt;MotionEvent*&gt;(inputEvent));
+                break;
+
+            default:
+                assert(false); // InputConsumer should prevent this from ever happening
+                inputEventObj = NULL;
+            }
+
+            if (inputEventObj) {
+#if DEBUG_DISPATCH_CYCLE
+                ALOGD(&quot;channel &#39;%s&#39; ~ Dispatching input event.&quot;, getInputChannelName());
+#endif
+                env-&gt;CallVoidMethod(mReceiverObjGlobal,
+                        gInputEventReceiverClassInfo.dispatchInputEvent, seq, inputEventObj);
+                if (env-&gt;ExceptionCheck()) {
+                    ALOGE(&quot;Exception dispatching input event.&quot;);
+                    skipCallbacks = true;
+                }
+            } else {
+                ALOGW(&quot;channel &#39;%s&#39; ~ Failed to obtain event object.&quot;, getInputChannelName());
+                skipCallbacks = true;
+            }
+        }
+
+        if (skipCallbacks) {
+            mInputConsumer.sendFinishedSignal(seq, false);
+        }
+    }
+}</code></pre></div>
+
+
+<p>这里会回调到java层上的InputEventReceiver的dispatchInputEvent：</p>
+
+<div class="highlight"><pre><code class="language-java" data-lang="java">// Called from native code.
+    @SuppressWarnings(&quot;unused&quot;)
+    private void dispatchInputEvent(int seq, InputEvent event) {
+        mSeqMap.put(event.getSequenceNumber(), seq);
+        onInputEvent(event);
+    }</code></pre></div>
+
+
+<p>这里的onInputEvent(event)方法已经被WindowInputEventReceiver复写了:</p>
+
+<div class="highlight"><pre><code class="language-java" data-lang="java">@Override
+        public void onInputEvent(InputEvent event) {
+            enqueueInputEvent(event, this, 0, true);
+        }</code></pre></div>
+
+
+<p>这里往下翻一点就知道这个队列做了什么事情:</p>
+
+<div class="highlight"><pre><code class="language-java" data-lang="java">private void deliverInputEvent(QueuedInputEvent q) {
+        Trace.traceBegin(Trace.TRACE_TAG_VIEW, &quot;deliverInputEvent&quot;);
+        try {
+            if (q.mEvent instanceof KeyEvent) {
+                deliverKeyEvent(q);
+            } else {
+                final int source = q.mEvent.getSource();
+                if ((source &amp; InputDevice.SOURCE_CLASS_POINTER) != 0) {
+                    deliverPointerEvent(q);
+                } else if ((source &amp; InputDevice.SOURCE_CLASS_TRACKBALL) != 0) {
+                    deliverTrackballEvent(q);
+                } else {
+                    deliverGenericMotionEvent(q);
+                }
+            }
+        } finally {
+            Trace.traceEnd(Trace.TRACE_TAG_VIEW);
+        }
+    }</code></pre></div>
+
+
+<p>这里讲底层的inputEvent分成各种不同的类型去区别对待.</p>
+
+<p>这里就能看到View是如何接收事件的整个过程的</p>
+
+<div class="highlight"><pre><code class="language-java" data-lang="java"></code></pre></div>
+
+
+<h3>结论</h3>
+
+<p>1.androd的底层实现是通过socket和共享内存的方式，这种写法也可以采用在我们自己的多进程通信上使用，值得学习
+2.底层所有的event其实都是一样的，都是inputEvent，上层会根据source再分成keyEvent,MotionEvent等，用于不同的用处
+3.所有View的起点其实就是dispatchPointerEvent()，这个是分发事件的起点.</p>
+
+<h3>参考blog</h3>
+
+
+        <div id="disqus_container">
+            <div style="margin-bottom:20px" class="right">
+                <script type="text/javascript" charset="utf-8">
+                (function(){
+                  var _w = 86 , _h = 16;
+                  var param = {
+                    url:location.href,
+                    type:'6',
+                    count:'', /**是否显示分享数，1显示(可选)*/
+                    appkey:'', /**您申请的应用appkey,显示分享来源(可选)*/
+                    title:'', /**分享的文字内容(可选，默认为所在页面的title)*/
+                    pic:'', /**分享图片的路径(可选)*/
+                    ralateUid:'1855270953', /**关联用户的UID，分享微博会@该用户(可选)*/
+                    language:'zh_cn', /**设置语言，zh_cn|zh_tw(可选)*/
+                    rnd:new Date().valueOf()
+                  }
+                  var temp = [];
+                  for( var p in param ){
+                    temp.push(p + '=' + encodeURIComponent( param[p] || '' ) )
+                  }
+                  document.write('<iframe allowTransparency="true" frameborder="0" scrolling="no" src="http://hits.sinajs.cn/A1/weiboshare.html?' + temp.join('&') + '" width="'+ _w+'" height="'+_h+'"></iframe>')
+                })()
+                </script>
+            </div>
+            <a href="#" class="comment" onclick="return false;">点击查看评论</a>
+            <div id="disqus_thread"></div>
+        </div>
+    </div>
+
+    <!--<div class="sidenav">
+        <iframe width="100%" height="75" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=75&fansRow=2&ptype=1&speed=0&skin=5&isTitle=0&noborder=0&isWeibo=0&isFans=0&uid=1855270953&verifier=375b89d6&dpc=1"></iframe>
+    </div> -->
+
+    <div class="sidenav">
+        <h2>Blog</h2>
+        <ul class="artical-list">
+        
+            <li><a href="/AndroidTouch1">Android</a></li>
+        
+            <li><a href="/AndroidTouch">Android</a></li>
+        
+            <li><a href="/AndroidCanvas">Android图形的知识</a></li>
+        
+            <li><a href="/android-Alpha">android中如何高效的使用alpha属性</a></li>
+        
+            <li><a href="/view">android的View绘制</a></li>
+        
+            <li><a href="/ndk">android的NDK调试常见问题</a></li>
+        
+            <li><a href="/git-svn">git和SVN配合</a></li>
+        
+            <li><a href="/sqlite-efficiency">关于java String的匹配问题</a></li>
+        
+            <li><a href="/java-String">关于java String的匹配问题</a></li>
+        
+            <li><a href="/andoird-ant">ant打包策略</a></li>
+        
+            <li><a href="/android-diandi">android的ListView常见问题</a></li>
+        
+            <li><a href="/android_L">androidL预言</a></li>
+        
+            <li><a href="/android-lint">android辅助工具</a></li>
+        
+            <li><a href="/first-commit">github 和jekyll方法</a></li>
+        
+            <li><a href="/vps-config-python-vitrualenv-flask-gunicorn-supervisor-nginx">VPS环境搭建详解 (Virtualenv+Gunicorn+Supervisor+Nginx)</a></li>
+        
+            <li><a href="/css3-animation">CSS3动画详解</a></li>
+        
+        </ul>
+
+        <h2>Opinion</h2>
+        <ul class="artical-list">
+        
+            <li><a href="/douban-fm">豆瓣FM(iOS 3.0)使用体会</a></li>
+        
+            <li><a href="/jobs-interview">史蒂夫·乔布斯：遗失的访谈</a></li>
+        
+            <li><a href="/40-ama-55-grammy">40届全美音乐奖和55届格莱美颁奖演出观感</a></li>
+        
+            <li><a href="/build-facebook">只有好的棋手才会走运</a></li>
+        
+            <li><a href="/bad-list-design">令人焦虑的列表设计</a></li>
+        
+            <li><a href="/about-simplify">胡言乱语说简单</a></li>
+        
+            <li><a href="/auto-edit-bar">随内容滚动隐藏的工具栏</a></li>
+        
+            <li><a href="/side-slide">如果侧滑成为APP标配</a></li>
+        
+            <li><a href="/needs-video">谈谈刚需和360影视</a></li>
+        
+        </ul>
+
+        <h2>Project</h2>
+        <ul class="artical-list">
+        
+            <li><a href="/tabby">Tabby</a></li>
+        
+            <li><a href="/notty-notes">Notty Notes</a></li>
+        
+            <li><a href="/overapi-cheatsheet">OverAPI</a></li>
+        
+            <li><a href="/raining-in-chrome">听雨</a></li>
+        
+        </ul>
+    </div>
+</div>
+
+<script src="/js/post.js" type="text/javascript"></script>
+
+
+    <!--*********************************************************-->
+    <!--****** 宝贝儿，看见这个时候，删掉下面的统计代码哦~ ******-->
+    <!--************* 再推荐下我的第一篇博客哦~~ ****************-->
+    <!--*********************************************************-->
+
+    <div class="hide">
+        <script type="text/javascript" src="http://js.tongji.linezing.com/2727758/tongji.js"></script>
+        <noscript><a href="http://www.linezing.com"><img src="http://img.tongji.linezing.com/2727758/tongji.gif"/></a></noscript>
+    </div>
+    <script type="text/javascript">
+        $(function(){
+            $('.home-follow').click(function(e){
+                e.preventDefault();
+
+                if($('.home-contact').is(':visible')){
+                    $('.home-contact').slideUp(100);
+                }else{
+                    $('.home-contact').slideDown(100);
+                }
+            });
+        })
+    </script>
+</body>
+</html>
