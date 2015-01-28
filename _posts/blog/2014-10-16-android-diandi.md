@@ -1,7 +1,7 @@
 ---
 layout: post
-title: android的ListView常见问题
-description: android的ListView常见问题
+title: android的基础控件
+description: android的常见控件ListView
 category: blog
 ---
 ### android listView addHeaderView的问题
