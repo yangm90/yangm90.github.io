@@ -1631,23 +1631,9 @@ Application app = r.packageInfo.makeApplication(false, mInstrumentation);
 {% highlight java linenos %} 
 mInstrumentation.callActivityOnCreate(activity, r.state);
 {% endhighlight %}
-	{% highlight java linenos %} {% endhighlight %}
 
-
-
-
-	{% highlight java linenos %} {% endhighlight %}
-
-
-
-	
 ![Alt text]( /images/android/androidL_1.png "Optional title")
 
-
-- ​http://developer.android.com/preview/api-overview.html
-- ​http://developer.android.com/preview/api-overview.html
-- ​http://developer.android.com/preview/api-overview.html
-- ​http://developer.android.com/preview/api-overview.html	
 
 	{% highlight java linenos %} {% endhighlight %}
 
