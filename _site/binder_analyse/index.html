@@ -1,0 +1,834 @@
+<p>所有代码研究基于android4.2.2_R1</p>
+
+<h1>从MediaService开始分析</h1>
+
+<h2>MediaService分析</h2>
+
+<p>framework\base\Media\MediaServer\Main_mediaserver.cpp</p>
+
+<div class="highlight"><pre><code class="language-java" data-lang="java">int main(int argc, char** argv)
+{
+
+//获得一个ProcessState实例
+    sp&lt;ProcessState&gt; proc(ProcessState::self());
+
+    //得到一个ServiceManager对象
+    sp&lt;IServiceManager&gt; sm = defaultServiceManager();
+    ALOGI(&quot;ServiceManager: %p&quot;, sm.get());
+    AudioFlinger::instantiate();
+    MediaPlayerService::instantiate();//初始化MediaPlayerService服务
+    CameraService::instantiate();
+    AudioPolicyService::instantiate();
+    ProcessState::self()-&gt;startThreadPool(); 
+    IPCThreadState::self()-&gt;joinThreadPool();
+}</code></pre></div>
+
+
+<h2>ProcessState的</h2>
+
+<p>主要关注的是ProcessState,第一行就调用的是ProcessState::self().</p>
+
+<div class="highlight"><pre><code class="language-java" data-lang="java">sp&lt;ProcessState&gt; ProcessState::self()
+{
+    Mutex::Autolock _l(gProcessMutex);
+    if (gProcess != NULL) {
+        return gProcess;
+    }
+    gProcess = new ProcessState;
+    return gProcess;
+}</code></pre></div>
+
+
+<p>ProcessState的构造函数</p>
+
+<div class="highlight"><pre><code class="language-java" data-lang="java">ProcessState::ProcessState()
+    : mDriverFD(open_driver())
+    , mVMStart(MAP_FAILED)
+    , mManagesContexts(false)
+    , mBinderContextCheckFunc(NULL)
+    , mBinderContextUserData(NULL)
+    , mThreadPoolStarted(false)
+    , mThreadPoolSeq(1)
+{
+    if (mDriverFD &gt;= 0) {
+        // XXX Ideally, there should be a specific define for whether we
+        // have mmap (or whether we could possibly have the kernel module
+        // availabla).
+#if !defined(HAVE_WIN32_IPC)
+        // mmap the binder, providing a chunk of virtual address space to receive transactions.
+        mVMStart = mmap(0, BINDER_VM_SIZE, PROT_READ, MAP_PRIVATE | MAP_NORESERVE, mDriverFD, 0);
+        if (mVMStart == MAP_FAILED) {
+            // *sigh*
+            ALOGE(&quot;Using /dev/binder failed: unable to mmap transaction memory.\n&quot;);
+            close(mDriverFD);
+            mDriverFD = -1;
+        }
+#else
+        mDriverFD = -1;
+#endif
+    }
+
+    LOG_ALWAYS_FATAL_IF(mDriverFD &lt; 0, &quot;Binder driver could not be opened.  Terminating.&quot;);
+}</code></pre></div>
+
+
+<p>这里已经调用open_driver()，open_driver，就是打开/dev/binder这个设备，这个是android在内核中搞的一个专门用于完成
+进程间通讯而设置的一个虚拟的设备。BTW，说白了就是内核的提供的一个机制，这个和我们用socket加NET_LINK方式和内核通讯是一个道理。</p>
+
+<div class="highlight"><pre><code class="language-java" data-lang="java">static int open_driver()
+{
+    int fd = open(&quot;/dev/binder&quot;, O_RDWR);
+    if (fd &gt;= 0) {
+        fcntl(fd, F_SETFD, FD_CLOEXEC);
+        int vers;
+        status_t result = ioctl(fd, BINDER_VERSION, &amp;vers);
+        if (result == -1) {
+            ALOGE(&quot;Binder ioctl to obtain version failed: %s&quot;, strerror(errno));
+            close(fd);
+            fd = -1;
+        }
+        if (result != 0 || vers != BINDER_CURRENT_PROTOCOL_VERSION) {
+            ALOGE(&quot;Binder driver protocol does not match user space protocol!&quot;);
+            close(fd);
+            fd = -1;
+        }
+        size_t maxThreads = 15;
+        result = ioctl(fd, BINDER_SET_MAX_THREADS, &amp;maxThreads);
+        if (result == -1) {
+            ALOGE(&quot;Binder ioctl to set max threads failed: %s&quot;, strerror(errno));
+        }
+    } else {
+        ALOGW(&quot;Opening &#39;/dev/binder&#39; failed: %s\n&quot;, strerror(errno));
+    }
+    return fd;
+}</code></pre></div>
+
+
+<p>i
+1. 打开/dev/binder设备，这样的话就相当于和内核binder机制有了交互的通道
+2. 映射fd到内存，设备的fd传进去后，估计这块内存是和binder设备共享的</p>
+
+<h2>defaultServiceManager分析</h2>
+
+<p>defaultServiceManager位置在framework\base\libs\binder\IServiceManager.cpp中</p>
+
+<div class="highlight"><pre><code class="language-java" data-lang="java">sp&lt;IServiceManager&gt; defaultServiceManager()
+{
+    if (gDefaultServiceManager != NULL) return gDefaultServiceManager;
+    
+    {
+        AutoMutex _l(gDefaultServiceManagerLock);
+        if (gDefaultServiceManager == NULL) {
+            //真正的gDefaultServiceManager是在这里创建的喔
+            gDefaultServiceManager = interface_cast&lt;IServiceManager&gt;(
+                ProcessState::self()-&gt;getContextObject(NULL));
+        }
+    }
+    
+    return gDefaultServiceManager;
+}</code></pre></div>
+
+
+<p>分析代码就可以理解出来，其实调用是这样的</p>
+
+<div class="highlight"><pre><code class="language-java" data-lang="java">gDefaultServiceManager = interface_cast&lt;IServiceManager&gt;(new BpBinder(0));</code></pre></div>
+
+
+<p>interface_cast函数
+\frameworks\native\include\binder\IInterface.h：</p>
+
+<div class="highlight"><pre><code class="language-java" data-lang="java">template&lt;typename INTERFACE&gt;
+inline sp&lt;INTERFACE&gt; interface_cast(const sp&lt;IBinder&gt;&amp; obj)
+{
+    return INTERFACE::asInterface(obj);
+}</code></pre></div>
+
+
+<p>结合前面就是：</p>
+
+<div class="highlight"><pre><code class="language-java" data-lang="java">inline sp&lt;IServiceManager&gt; interface_cast(const sp&lt;IBinder&gt;&amp; obj)
+{
+    return IServiceManager::asInterface(obj);
+}</code></pre></div>
+
+
+<p>所以需要到IServiceManager里面去看看是如何实现的:  <br/>
+\frameworks\native\include\binder\IServiceManager.h：</p>
+
+<div class="highlight"><pre><code class="language-java" data-lang="java">class IServiceManager : public IInterface
+{
+public:
+    DECLARE_META_INTERFACE(ServiceManager);
+    /**
+     * Retrieve an existing service, blocking for a few seconds
+     * if it doesn&#39;t yet exist.
+     */
+    virtual sp&lt;IBinder&gt;         getService( const String16&amp; name) const = 0;
+
+    /**
+     * Retrieve an existing service, non-blocking.
+     */
+    virtual sp&lt;IBinder&gt;         checkService( const String16&amp; name) const = 0;
+
+    /**
+     * Register a service.
+     */
+    virtual status_t            addService( const String16&amp; name,
+                                            const sp&lt;IBinder&gt;&amp; service,
+                                            bool allowIsolated = false) = 0;
+
+    /**
+     * Return list of all existing services.
+     */
+    virtual Vector&lt;String16&gt;    listServices() = 0;
+
+    enum {
+        GET_SERVICE_TRANSACTION = IBinder::FIRST_CALL_TRANSACTION,
+        CHECK_SERVICE_TRANSACTION,
+        ADD_SERVICE_TRANSACTION,
+        LIST_SERVICES_TRANSACTION,
+    };
+};
+
+
+//DECLARE_META_INTERFACE 声明: IInterface.h
+
+#define DECLARE_META_INTERFACE(INTERFACE)                               \
+    static const android::String16 descriptor;                          \
+    static android::sp&lt;I##INTERFACE&gt; asInterface(                       \
+            const android::sp&lt;android::IBinder&gt;&amp; obj);                  \
+    virtual const android::String16&amp; getInterfaceDescriptor() const;    \
+    I##INTERFACE();                                                     \
+    virtual ~I##INTERFACE();                                            \</code></pre></div>
+
+
+<p>替换成IServiceManager：</p>
+
+<div class="highlight"><pre><code class="language-java" data-lang="java">//实现时传入：android.os.IServiceManager
+static const android::String16 descriptor; 
+static android::sp&lt;IServiceManager&gt; asInterface( 
+const android::sp&lt;android::IBinder&gt;&amp; obj); 
+virtual const android::String16&amp; getInterfaceDescriptor() const; 
+//构造析构函数
+IServiceManager(); 
+virtual ~IServiceManager();</code></pre></div>
+
+
+<p>实现\frameworks\native\include\binder\IServiceManager.cpp：</p>
+
+<div class="highlight"><pre><code class="language-java" data-lang="java">IMPLEMENT_META_INTERFACE(ServiceManager, &quot;android.os.IServiceManager&quot;);</code></pre></div>
+
+
+<p>IMPLEMENT_META_INTERFACE实现：IInterface.h</p>
+
+<div class="highlight"><pre><code class="language-java" data-lang="java">#define IMPLEMENT_META_INTERFACE(INTERFACE, NAME)                       \
+    const android::String16 I##INTERFACE::descriptor(NAME);             \
+    const android::String16&amp;                                            \
+            I##INTERFACE::getInterfaceDescriptor() const {              \
+        return I##INTERFACE::descriptor;                                \
+    }                                                                   \
+    android::sp&lt;I##INTERFACE&gt; I##INTERFACE::asInterface(                \
+            const android::sp&lt;android::IBinder&gt;&amp; obj)                   \
+    {                                                                   \
+        android::sp&lt;I##INTERFACE&gt; intr;                                 \
+        if (obj != NULL) {                                              \
+            intr = static_cast&lt;I##INTERFACE*&gt;(                          \
+                obj-&gt;queryLocalInterface(                               \
+                        I##INTERFACE::descriptor).get());               \
+            if (intr == NULL) {                                         \
+                intr = new Bp##INTERFACE(obj);                          \
+            }                                                           \
+        }                                                               \
+        return intr;                                                    \
+    }                                                                   \
+    I##INTERFACE::I##INTERFACE() { }                                    \
+    I##INTERFACE::~I##INTERFACE() { }                                   \</code></pre></div>
+
+
+<p>替换成IServiceManager:</p>
+
+<div class="highlight"><pre><code class="language-java" data-lang="java">android::sp&lt;IServiceManager&gt; IServiceManager::asInterface(                
+            const android::sp&lt;android::IBinder&gt;&amp; obj)                   
+{   
+        //obj BpBinder实例                                                                
+        android::sp&lt;IServiceManager&gt; intr;                                
+        if (obj != NULL) {
+            //返回NULL                                        
+            intr = static_cast&lt;IServiceManager*&gt;(                          
+                obj-&gt;queryLocalInterface(                               
+                        IServiceManager::descriptor).get());              
+            if (intr == NULL) {                                         
+                intr = new BpServiceManager(obj);                          
+            }                                                           
+        }                                                               
+        return intr;                                                    
+}</code></pre></div>
+
+
+<p>可以看出这个gDefaultServiceManager的实例其实是</p>
+
+<div class="highlight"><pre><code class="language-java" data-lang="java">BpServiceManager：new BpServiceManager（new BpBinder（0））；</code></pre></div>
+
+
+<h2>BpServiceManager 和BpInterface</h2>
+
+<p>\frameworks\native\libs\binder\ IServiceManager.cpp：BpServiceManager</p>
+
+<div class="highlight"><pre><code class="language-java" data-lang="java">class BpServiceManager : public BpInterface&lt;IServiceManager&gt;
+{
+public:
+      //impl就是 new BpBinder（0）
+    BpServiceManager(const sp&lt;IBinder&gt;&amp; impl)
+        : BpInterface&lt;IServiceManager&gt;(impl)
+    {
+    }
+
+    virtual sp&lt;IBinder&gt; checkService(const String16&amp; name) const
+    {
+        ……
+        remote()-&gt;transact(CHECK_SERVICE_TRANSACTION, data, &amp;reply);
+    }
+
+    virtual status_t addService(const String16&amp; name, const sp&lt;IBinder&gt;&amp; service,
+            bool allowIsolated)
+    {
+        ……
+        remote()-&gt;transact(ADD_SERVICE_TRANSACTION, data, &amp;reply);
+    }
+}</code></pre></div>
+
+
+<p>\frameworks\native\include\binder\ IInterface.h：模板类BpInterface</p>
+
+<div class="highlight"><pre><code class="language-java" data-lang="java">template&lt;typename INTERFACE&gt;
+class BpInterface : public INTERFACE, public BpRefBase
+{
+public:
+                                BpInterface(const sp&lt;IBinder&gt;&amp; remote);
+
+protected:
+    virtual IBinder*            onAsBinder();
+};</code></pre></div>
+
+
+<p>BpInterface的构造函数是空的就不用看了，直接看BpRefBase：</p>
+
+<div class="highlight"><pre><code class="language-java" data-lang="java">BpRefBase::BpRefBase(const sp&lt;IBinder&gt;&amp; o)
+    : mRemote(o.get()), mRefs(NULL), mState(0)
+{
+    extendObjectLifetime(OBJECT_LIFETIME_WEAK);
+    // IBinder mRemote 指向 o.get() ：new BpBinder（0）
+    if (mRemote) {
+        mRemote-&gt;incStrong(this);           // Removed on first IncStrong().
+        mRefs = mRemote-&gt;createWeak(this);  // Held for our entire lifetime.
+    }
+}</code></pre></div>
+
+
+<p>gDefaultServiceManager = interface_cast<IServiceManager>(BpBinder(0))；
+实际为：
+　　gDefaultServiceManager = new BpServiceManager（new BpBinder（0））；
+Bn代表Binder Native   Bp代表Binder Proxy
+BpServiceManager代理的BpBinder实例 BpBinder代理的handle（0）</p>
+
+<p>在Media Process 的main函数中通过：</p>
+
+<p>sp<IServiceManager> sm = defaultServiceManager();
+　　我们得到了sm：是BpServiceManager对象</p>
+
+<p>在回顾MediaPlayerService做了哪些:</p>
+
+<div class="highlight"><pre><code class="language-java" data-lang="java">int main(int argc, char** argv)
+{
+    sp&lt;ProcessState&gt; proc(ProcessState::self());
+    sp&lt;IServiceManager&gt; sm = defaultServiceManager();
+    ALOGI(&quot;ServiceManager: %p&quot;, sm.get());
+    AudioFlinger::instantiate();
+    MediaPlayerService::instantiate();
+    CameraService::instantiate();
+    AudioPolicyService::instantiate();
+    ProcessState::self()-&gt;startThreadPool();
+    IPCThreadState::self()-&gt;joinThreadPool();
+}</code></pre></div>
+
+
+<p>MediaPlayerService初始化过程:</p>
+
+<div class="highlight"><pre><code class="language-java" data-lang="java">void MediaPlayerService::instantiate() {
+    defaultServiceManager()-&gt;addService(
+            String16(&quot;media.player&quot;), new MediaPlayerService());
+}</code></pre></div>
+
+
+<p>看BpServiceManager的addService方法</p>
+
+<div class="highlight"><pre><code class="language-java" data-lang="java">virtual status_t addService(const String16&amp; name, const sp&lt;IBinder&gt;&amp; service,
+            bool allowIsolated)
+    {
+        Parcel data, reply;
+        // Write RPC headers 写入Interface名字 得到“android.os.IServiceManager”
+        data.writeInterfaceToken(IServiceManager::getInterfaceDescriptor());
+//写入Service名字 “media.player”
+        data.writeString16(name);
+//写入服务
+        data.writeStrongBinder(service);
+        data.writeInt32(allowIsolated ? 1 : 0);
+// remote()返回BpBinder对象
+        status_t err = remote()-&gt;transact(ADD_SERVICE_TRANSACTION, data, &amp;reply);
+        return err == NO_ERROR ? reply.readExceptionCode() : err;
+    }</code></pre></div>
+
+
+<p>调用的是BpBinder的transact:</p>
+
+<div class="highlight"><pre><code class="language-java" data-lang="java">status_t BpBinder::transact(
+    uint32_t code, const Parcel&amp; data, Parcel* reply, uint32_t flags)
+{
+    // Once a binder has died, it will never come back to life.
+    if (mAlive) {
+        status_t status = IPCThreadState::self()-&gt;transact(
+            mHandle, code, data, reply, flags);
+        if (status == DEAD_OBJECT) mAlive = 0;
+        return status;
+    }
+
+    return DEAD_OBJECT;
+}</code></pre></div>
+
+
+<h2>IPCThreadState中写入数据到Binder设备过程</h2>
+
+<div class="highlight"><pre><code class="language-java" data-lang="java">status_t IPCThreadState::transact(int32_t handle,
+                                  uint32_t code, const Parcel&amp; data,
+                                  Parcel* reply, uint32_t flags)
+{
+    status_t err = data.errorCheck();
+
+    flags |= TF_ACCEPT_FDS;
+
+    ......    
+      
+    if (err != NO_ERROR) {
+        if (reply) reply-&gt;setError(err);
+        return (mLastError = err);
+    }
+    
+    if ((flags &amp; TF_ONE_WAY) == 0) {
+        #if 0
+        if (code == 4) { // relayout
+            ALOGI(&quot;&gt;&gt;&gt;&gt;&gt;&gt; CALLING transaction 4&quot;);
+        } else {
+            ALOGI(&quot;&gt;&gt;&gt;&gt;&gt;&gt; CALLING transaction %d&quot;, code);
+        }
+        #endif
+        if (reply) {
+            err = waitForResponse(reply);
+        } else {
+            Parcel fakeReply;
+            err = waitForResponse(&amp;fakeReply);
+        }
+        #if 0
+        if (code == 4) { // relayout
+            ALOGI(&quot;&lt;&lt;&lt;&lt;&lt;&lt; RETURNING transaction 4&quot;);
+        } else {
+            ALOGI(&quot;&lt;&lt;&lt;&lt;&lt;&lt; RETURNING transaction %d&quot;, code);
+        }
+        #endif
+       } else {
+        err = waitForResponse(NULL, NULL);
+    }
+    
+    return err;
+}
+
+status_t IPCThreadState::waitForResponse(Parcel *reply, status_t *acquireResult)
+{
+    while (1) {
+        //将数据写入到Binder设备中
+        talkWithDriver();
+        ……
+    }
+    return err;
+}
+status_t IPCThreadState::talkWithDriver(bool doReceive)
+{
+    //将数据封装成binder_write_read结构
+    binder_write_read bwr;
+
+    do {
+        //将数据写入到所打开的Binder设备中
+        ioctl(mProcess-&gt;mDriverFD, BINDER_WRITE_READ, &amp;bwr)
+        ……
+    
+    } while (err == -EINTR);
+    return NO_ERROR;
+}</code></pre></div>
+
+
+<p>将MediaPlayerService加入到ServiceManager中，
+这里就通过BpServiceManager的AddService将数据写入到Binder设备传递给ServiceManager。</p>
+
+<h2>Media Process消息循环</h2>
+
+<div class="highlight"><pre><code class="language-java" data-lang="java">int main(int argc, char** argv)
+{
+    //启动进程的线程池    
+    ProcessState::self()-&gt;startThreadPool();     //走到了这里
+
+    //执行线程消息循环
+    IPCThreadState::self()-&gt;joinThreadPool();
+}</code></pre></div>
+
+
+<p>ProcessState::self()->startThreadPool(); -----> 创建工作者线程:
+startThreadPool：\frameworks\native\libs\binder\ ProcessState.cpp：</p>
+
+<div class="highlight"><pre><code class="language-java" data-lang="java">void ProcessState::spawnPooledThread(bool isMain)
+{
+    if (mThreadPoolStarted) {
+        int32_t s = android_atomic_add(1, &amp;mThreadPoolSeq);
+        char buf[16];
+        snprintf(buf, sizeof(buf), &quot;Binder_%X&quot;, s);
+        ALOGV(&quot;Spawning new pooled thread, name=%s\n&quot;, buf);
+//创建PoolThread对象 并run ，非线程
+        sp&lt;Thread&gt; t = new PoolThread(isMain);
+        t-&gt;run(buf);
+    }
+}</code></pre></div>
+
+
+<p>PoolThread继承Thread
+执行Thread的run函数
+位于utils/Threads.cpp</p>
+
+<div class="highlight"><pre><code class="language-java" data-lang="java">status_t Thread::run(const char* name, int32_t priority, size_t stack)
+{
+    //创建线程mThread _threadLoop
+    bool res;
+    res = createThreadEtc(_threadLoop,
+    this, name, priority, stack, &amp;mThread);
+
+    return NO_ERROR;
+}</code></pre></div>
+
+
+<p>现在有两个线程：主线程和mThread线程
+mThread线程执行：_threadLoop</p>
+
+<div class="highlight"><pre><code class="language-java" data-lang="java">int Thread::_threadLoop(void* user)
+{
+    Thread* const self = static_cast&lt;Thread*&gt;(user);
+    do {
+        //调用子类的threadLoop
+        result = self-&gt;threadLoop();
+        ……
+    } while(strong != 0);
+    return 0;
+}
+
+class PoolThread : public Thread
+{
+protected:
+    virtual bool threadLoop()
+    {
+        IPCThreadState::self()-&gt;joinThreadPool(mIsMain);
+        return false;
+    }
+};</code></pre></div>
+
+
+<h2>进程间通信消息循环过程</h2>
+
+<p>消息循环:</p>
+
+<div class="highlight"><pre><code class="language-java" data-lang="java">void IPCThreadState::joinThreadPool(bool isMain)
+{
+    mOut.writeInt32(isMain ? BC_ENTER_LOOPER : BC_REGISTER_LOOPER);
+    status_t result;    
+    //消息循环
+    do {
+        int32_t cmd;
+        //从binder设备中读取命令
+        result = talkWithDriver();
+        if (result &gt;= NO_ERROR) {
+            cmd = mIn.readInt32();
+            //执行命令
+            result = executeCommand(cmd);
+        }
+           ……
+    } while (result != -ECONNREFUSED &amp;&amp; result != -EBADF);
+    
+    mOut.writeInt32(BC_EXIT_LOOPER);
+    talkWithDriver(false);
+}</code></pre></div>
+
+
+<p>命令执行：</p>
+
+<div class="highlight"><pre><code class="language-java" data-lang="java">status_t IPCThreadState::executeCommand(int32_t cmd)
+{
+    BBinder* obj;
+    RefBase::weakref_type* refs;
+    switch (cmd) {
+    case BR_DECREFS:
+        break;
+    case BR_ATTEMPT_ACQUIRE:
+        break;
+case BR_TRANSACTION:
+　　binder_transaction_data tr;
+    result = mIn.read(&amp;tr, sizeof(tr));
+      if (tr.target.ptr) {
+        //将目标对象转化成BBinder
+        sp&lt;BBinder&gt; b((BBinder*)tr.cookie);
+        //调用BBinder的transact 函数
+       const status_t error = b-&gt;transact(tr.code, buffer, &amp;reply, tr.flags);
+      }
+        break;
+    ……
+    default:
+    }
+    return result;
+}</code></pre></div>
+
+
+<p>binder_transaction_data.cookie：target object cookie目标对象，这个target object是指那个呢？</p>
+
+<p>在Media Process里面有几个Service：AudioFlinger、MediaPlayerService、CameraService等。</p>
+
+<p>这个目标是这其中Service中的一个，假设目标对象为为MediaPlayerService，那为何要转化成BBinder呢？</p>
+
+<h2>Service对命令的处理</h2>
+
+<p>线程从binder接收到消息命令，将命令传递给Service处理。将目标对象转化成BBinder，然后调度此命令；
+命令从远端传递到本地端进行处理，每个Service都对应BnXXX对象来处理远端BpXXX传来的命令。
+　　sp<BBinder> b((BBinder*)tr.cookie);
+　　const status_t error = b->transact(tr.code, buffer, &amp;reply, tr.flags);
+　　这里b代表某个Service：假设为MediaPlayerService；弄清楚执行过程，要弄清楚类继承关系。</p>
+
+<p>本地端BnMediaPlayerService消息处理过程：真正的对象是MediaPlayerService实例。
+从BBinder ->transact开始传递：</p>
+
+<div class="highlight"><pre><code class="language-java" data-lang="java">status_t BBinder::transact(
+    uint32_t code, const Parcel&amp; data, Parcel* reply, uint32_t flags)
+{
+    data.setDataPosition(0);
+
+    status_t err = NO_ERROR;
+    switch (code) {
+        case PING_TRANSACTION:
+            reply-&gt;writeInt32(pingBinder());
+            break;
+        default:
+        //onTransact是个virtual函数 派生类BnMediaPlayerService重写
+            err = onTransact(code, data, reply, flags);
+            break;
+    }
+
+    if (reply != NULL) {
+        reply-&gt;setDataPosition(0);
+    }
+
+    return err;
+}</code></pre></div>
+
+
+<p>调用的是onTransact(code, data, reply, flags); BBinder的onTransact是虚函数，被子类BnMediaPlayerService复写:</p>
+
+<div class="highlight"><pre><code class="language-java" data-lang="java"></code></pre></div>
+
+
+
+
+<div class="highlight"><pre><code class="language-java" data-lang="java"></code></pre></div>
+
+
+
+
+<div class="highlight"><pre><code class="language-java" data-lang="java"></code></pre></div>
+
+
+
+
+<div class="highlight"><pre><code class="language-java" data-lang="java"></code></pre></div>
+
+
+<p>这里调用的ProcessState的getContextObject;</p>
+
+<div class="highlight"><pre><code class="language-java" data-lang="java">sp&lt;IBinder&gt; ProcessState::getContextObject(const sp&lt;IBinder&gt;&amp; caller)
+{
+    return getStrongProxyForHandle(0);
+}
+
+    sp&lt;IBinder&gt; ProcessState::getStrongProxyForHandle(int32_t handle)
+{
+    sp&lt;IBinder&gt; result;
+
+    AutoMutex _l(mLock);
+
+    handle_entry* e = lookupHandleLocked(handle);
+
+    if (e != NULL) {
+        // We need to create a new BpBinder if there isn&#39;t currently one, OR we
+        // are unable to acquire a weak reference on this current one.  See comment
+        // in getWeakProxyForHandle() for more info about this.
+        IBinder* b = e-&gt;binder;
+        if (b == NULL || !e-&gt;refs-&gt;attemptIncWeak(this)) {
+            b = new BpBinder(handle); 
+            e-&gt;binder = b;
+            if (b) e-&gt;refs = b-&gt;getWeakRefs();
+            result = b;
+        } else {
+            // This little bit of nastyness is to allow us to add a primary
+            // reference to the remote proxy when this team doesn&#39;t have one
+            // but another team is sending the handle to us.
+            result.force_set(b);
+            e-&gt;refs-&gt;decWeak(this);
+        }
+    }
+
+    return result;
+}</code></pre></div>
+
+
+
+
+<div class="highlight"><pre><code class="language-java" data-lang="java"></code></pre></div>
+
+
+
+
+<div class="highlight"><pre><code class="language-java" data-lang="java"></code></pre></div>
+
+
+
+
+<div class="highlight"><pre><code class="language-java" data-lang="java"></code></pre></div>
+
+
+<p>在看看BpBinder：</p>
+
+<h2>BpBinder</h2>
+
+<div class="highlight"><pre><code class="language-java" data-lang="java">BpBinder::BpBinder(int32_t handle)
+    : mHandle(handle)
+    , mAlive(1)
+    , mObitsSent(0)
+    , mObituaries(NULL)
+{
+    ALOGV(&quot;Creating BpBinder %p handle %d\n&quot;, this, mHandle);
+
+    extendObjectLifetime(OBJECT_LIFETIME_WEAK);
+    IPCThreadState::self()-&gt;incWeakHandle(handle);//FT，竟然到IPCThreadState::self()
+}</code></pre></div>
+
+
+<p>这里一块说说吧，IPCThreadState::self估计怎么着又是一个singleton吧？</p>
+
+<p>//该文件位置在framework\base\libs\binder\IPCThreadState.cpp</p>
+
+<div class="highlight"><pre><code class="language-java" data-lang="java">IPCThreadState* IPCThreadState::self()
+{
+    if (gHaveTLS) {
+restart:
+        const pthread_key_t k = gTLS;
+//TLS是Thread Local Storage的意思，不懂得自己去google下它的作用吧。这里只需要
+
+//知道这种空间每个线程有一个，而且线程间不共享这些空间，好处是？我就不用去搞什么
+
+//同步了。在这个线程，我就用这个线程的东西，反正别的线程获取不到其他线程TLS中的数据。===》这句话有漏洞，钻牛角尖的明白大概意思就可以了。
+
+//从线程本地存储空间中获得保存在其中的IPCThreadState对象
+
+//这段代码写法很晦涩，看见没，只有pthread_getspecific,那么肯定有地方调用
+
+// pthread_setspecific
+        IPCThreadState* st = (IPCThreadState*)pthread_getspecific(k);
+        if (st) return st;
+        return new IPCThreadState;
+    }
+    
+    if (gShutdown) return NULL;
+    
+    pthread_mutex_lock(&amp;gTLSMutex);
+    if (!gHaveTLS) {
+        if (pthread_key_create(&amp;gTLS, threadDestructor) != 0) {
+            pthread_mutex_unlock(&amp;gTLSMutex);
+            return NULL;
+        }
+        gHaveTLS = true;
+    }
+    pthread_mutex_unlock(&amp;gTLSMutex);
+    goto restart;
+}</code></pre></div>
+
+
+<p>构造函数:</p>
+
+<div class="highlight"><pre><code class="language-java" data-lang="java"></code></pre></div>
+
+
+
+
+<div class="highlight"><pre><code class="language-java" data-lang="java"></code></pre></div>
+
+
+
+
+<div class="highlight"><pre><code class="language-java" data-lang="java"></code></pre></div>
+
+
+
+
+<div class="highlight"><pre><code class="language-java" data-lang="java"></code></pre></div>
+
+
+
+
+<div class="highlight"><pre><code class="language-java" data-lang="java"></code></pre></div>
+
+
+
+
+<div class="highlight"><pre><code class="language-java" data-lang="java"></code></pre></div>
+
+
+
+
+<ul>
+    <li>jekyll打开本地服务jekyll serve</li>
+    <li>关于jekyll的 Address already in use - bind(2):</br>
+        先采用lsof -wni tcp:4000 或者使用 ps aux |grep "jek"</br>
+        再采用kill -9 PID命令
+        </li>
+    
+</ul>
+
+
+<p><img src="/images/android/androidL_1.png" title="Optional title" alt="Alt text" /></p>
+
+<ul>
+<li>​http://developer.android.com/preview/api-overview.html</li>
+<li>​http://developer.android.com/preview/api-overview.html</li>
+<li>​http://developer.android.com/preview/api-overview.html</li>
+<li>​http://developer.android.com/preview/api-overview.html</li>
+</ul>
+
+
+<div class="highlight"><pre><code class="language-java" data-lang="java"></code></pre></div>
+
+
+<h3>结论</h3>
+
+<p>1.androd的底层实现是通过socket和共享内存的方式，这种写法也可以采用在我们自己的多进程通信上使用，值得学习
+2.底层所有的event其实都是一样的，都是inputEvent，上层会根据source再分成keyEvent,MotionEvent等，用于不同的用处
+3.所有View的起点其实就是dispatchPointerEvent()，这个是分发事件的起点.</p>
+
+<h3>参考blog</h3>
+
+<p>http://www.cnblogs.com/-OYK/archive/2011/07/31/2122981.html
+http://www.cnblogs.com/zhangxinyan/p/3487905.html
+http://blog.csdn.net/yangwen123/article/details/9142521
+http://blog.csdn.net/maxleng/article/details/5490770
+http://www.cnblogs.com/innost/archive/2011/01/09/1931456.html
+http://www.cnblogs.com/bastard/archive/2012/11/13/2766611.html
+http://blog.csdn.net/a220315410/article/details/17761681</p>

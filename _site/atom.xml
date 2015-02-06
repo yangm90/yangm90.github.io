@@ -4,13 +4,2555 @@
    <title>Yangming.com</title>
    <link href="http://yangm90.github.io/Blog//atom.xml" rel="self" type="application/atom+xml"/>
    <link href="http://yangm90.github.io/Blog/" rel="alternate" type="text/html" />
-   <updated>2015-01-10T17:23:08+08:00</updated>
+   <updated>2015-02-04T16:39:17+08:00</updated>
    <id>http://yangm90.github.io/Blog/</id>
    <author>
      <name></name>
      <email></email>
    </author>
 
+   
+   <entry>
+     <title>简历</title>
+     <link href="http://beiyuu.com/ymResume"/>
+     <updated>2015-01-28T00:00:00+08:00</updated>
+     <id>http://beiyuu.com/ymResume</id>
+     <content type="html">&lt;hr /&gt;
+
+&lt;h1&gt;个人信息&lt;/h1&gt;
+
+&lt;ul&gt;
+&lt;li&gt;杨明/男/1990&lt;/li&gt;
+&lt;li&gt;本科/武汉科技大学网络工程系&lt;/li&gt;
+&lt;li&gt;工作年限：2年&lt;/li&gt;
+&lt;li&gt;技术博客: http://yangm90.github.io&lt;/li&gt;
+&lt;li&gt;期望职位：android工程师，android研发&lt;/li&gt;
+&lt;li&gt;期望城市：北上广&lt;/li&gt;
+&lt;li&gt;期望薪资：税前17k~20K&lt;/li&gt;
+&lt;li&gt;QQ：89513196&lt;/li&gt;
+&lt;/ul&gt;
+
+
+&lt;hr /&gt;
+
+&lt;h1&gt;工作经历&lt;/h1&gt;
+
+&lt;h2&gt;猎豹移动公司 （ 2012年7月 ~ 至今 ）&lt;/h2&gt;
+
+&lt;h3&gt;cleanMatser的游戏加速 （2013年7月 ~ 至今）&lt;/h3&gt;
+
+&lt;ul&gt;
+&lt;li&gt;我参与了研究如何帮助用户顺畅的玩游戏，找出游戏卡顿的原因。通过对android源码分析以及对用户的使用场景分析，找出了对用户有很大作用的点，是游戏盒子功能的留存得到了20%的提升。&lt;/li&gt;
+&lt;li&gt;优化游戏盒子的启动框架，将游戏盒子的启动速度提升至竞品中最快（现在目前启动速度为0.7s）。&lt;/li&gt;
+&lt;/ul&gt;
+
+
+&lt;h3&gt;金山手机助手（2012年7月 ~2013年7月）&lt;/h3&gt;
+
+&lt;p&gt;这个项目中，主要参与几方面的事情：&lt;/p&gt;
+
+&lt;ul&gt;
+&lt;li&gt;将手机助手的各个模块降低耦合，并实现模块组件化，做到代码的动态加载，为内容的动态发布提供技术支持。&lt;/li&gt;
+&lt;li&gt;将手机助手的数据库采用内存级数据库，将数据库读写分离，提升了数据吞吐速度。&lt;/li&gt;
+&lt;li&gt;完善并且提高手机助手下载成功率，将手机助手的下载成功率从45%提升至60%。&lt;/li&gt;
+&lt;li&gt;熟悉rootService，对root的相关操作熟悉。&lt;/li&gt;
+&lt;/ul&gt;
+
+
+&lt;h1&gt;技能清单&lt;/h1&gt;
+
+&lt;p&gt;以下均为我熟练使用的技能：&lt;/p&gt;
+
+&lt;ul&gt;
+&lt;li&gt;语言：Java/Android&lt;/li&gt;
+&lt;li&gt;数据库相关：SQLite&lt;/li&gt;
+&lt;li&gt;版本管理、：Svn/Git&lt;/li&gt;
+&lt;li&gt;开发工具：android stdio,intellij idea , eclipse&lt;/li&gt;
+&lt;/ul&gt;
+
+
+&lt;hr /&gt;
+
+&lt;h1&gt;致谢&lt;/h1&gt;
+
+&lt;p&gt;感谢您花时间阅读我的简历，期待能有机会和您共事。&lt;/p&gt;
+</content>
+   </entry>
+   
+   <entry>
+     <title>学习Activity启动过程分析</title>
+     <link href="http://beiyuu.com/actvitystart"/>
+     <updated>2015-01-23T00:00:00+08:00</updated>
+     <id>http://beiyuu.com/actvitystart</id>
+     <content type="html">&lt;p&gt;所有代码研究基于android4.2.2_R1&lt;/p&gt;
+
+&lt;h2&gt;为何要研究Activity的启动过程:&lt;/h2&gt;
+
+&lt;ol&gt;
+&lt;li&gt;Activity其实是android提供的一个壳,供我们去学习如何以比较快的速度去完成一个app，但是本着知其然，知其所以然的心态，Activity的启动方式是值得研究的.&lt;/li&gt;
+&lt;li&gt;Activity的启动过程中，我们可以看出activity与application是如何交互的，在哪些位置交互的.&lt;/li&gt;
+&lt;/ol&gt;
+
+
+&lt;h2&gt;简析Activity启动过程&lt;/h2&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/android/androidL_1.png&quot; title=&quot;Optional title&quot; alt=&quot;Alt text&quot; /&gt;&lt;/p&gt;
+
+&lt;h3&gt;在Launch点击了图片开始:&lt;/h3&gt;
+
+&lt;p&gt;在Android系统中，应用程序是由Launcher启动起来的，其实，Launcher本身也是一个应用程序，其它的应用程序安装后，就会Launcher的界面上出现一个相应的图标，点击这个图标时，Launcher就会对应的应用程序启动起来。
+ Launcher的源代码工程在packages/apps/Launcher2目录下，负责启动其它应用程序的源代码实现在src/com/android/launcher2/Launcher.java文件中&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&quot;java &quot;&gt;/**
+* Default launcher application.
+*/
+public final class Launcher extends Activity
+        implements View.OnClickListener, OnLongClickListener, LauncherModel.Callbacks, AllAppsView.Watcher {
+
+    ......
+
+    /**
+    * Launches the intent referred by the clicked shortcut.
+    *
+    * @param v The view representing the clicked shortcut.
+    */
+    public void onClick(View v) {
+        Object tag = v.getTag();
+        if (tag instanceof ShortcutInfo) {
+            // Open shortcut
+            final Intent intent = ((ShortcutInfo) tag).intent;
+            int[] pos = new int[2];
+            v.getLocationOnScreen(pos);
+            intent.setSourceBounds(new Rect(pos[0], pos[1],
+                pos[0] + v.getWidth(), pos[1] + v.getHeight()));
+            startActivitySafely(intent, tag);
+        } else if (tag instanceof FolderInfo) {
+            ......
+        } else if (v == mHandleView) {
+            ......
+        }
+    }
+
+    void startActivitySafely(Intent intent, Object tag) {
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        try {
+            startActivity(intent);
+        } catch (ActivityNotFoundException e) {
+            ......
+        } catch (SecurityException e) {
+            ......
+        }
+    }
+
+    ......
+
+}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;一般的activity的AndroidManifest.xml为：&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;&amp;lt;activity android:name=&amp;quot;.MainActivity&amp;quot;  
+      android:label=&amp;quot;@string/app_name&amp;quot;&amp;gt;  
+       &amp;lt;intent-filter&amp;gt;  
+        &amp;lt;action android:name=&amp;quot;android.intent.action.MAIN&amp;quot; /&amp;gt;  
+        &amp;lt;category android:name=&amp;quot;android.intent.category.LAUNCHER&amp;quot; /&amp;gt;  
+    &amp;lt;/intent-filter&amp;gt;  
+&amp;lt;/activity&amp;gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;因此，这里的intent包含的信息为：action = &quot;android.intent.action.Main&quot;，category=&quot;android.intent.category.LAUNCHER&quot;, cmp=&quot;shy.luo.activity/.MainActivity&quot;，表示它要启动的Activity为shy.luo.activity.MainActivity。&lt;/p&gt;
+
+&lt;p&gt;Intent.FLAG_ACTIVITY_NEW_TASK表示要在一个新的Task中启动这个Activity，注意，Task是Android系统中的概念，它不同于进程Process的概念。简单地说，一个Task是一系列Activity的集合，这个集合是以堆栈的形式来组织的，遵循后进先出的原则。事实上，Task是一个非常复杂的概念，有兴趣的读者可以到官网http://developer.android.com/guide/topics/manifest/activity-element.html查看相关的资料。这里，我们只要知道，这个MainActivity要在一个新的Task中启动就可以了。&lt;/p&gt;
+
+&lt;p&gt;调用的Activity的startActivity:&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;@Override
+    public void startActivity(Intent intent) {
+        startActivity(intent, null);
+    }
+    
+    @Override
+    public void startActivity(Intent intent, Bundle options) {
+        if (options != null) {
+            startActivityForResult(intent, -1, options);
+        } else {
+            // Note we want to go through this call for compatibility with
+            // applications that may have overridden the method.
+            startActivityForResult(intent, -1);
+        }
+    }
+
+    public void startActivityForResult(Intent intent, int requestCode, Bundle options) {
+        if (mParent == null) {
+            Instrumentation.ActivityResult ar =
+                mInstrumentation.execStartActivity(
+                    this, mMainThread.getApplicationThread(), mToken, this,
+                    intent, requestCode, options);
+            if (ar != null) {
+                mMainThread.sendActivityResult(
+                    mToken, mEmbeddedID, requestCode, ar.getResultCode(),
+                    ar.getResultData());
+            }
+            if (requestCode &amp;gt;= 0) {
+                // If this start is requesting a result, we can avoid making
+                // the activity visible until the result is received.  Setting
+                // this code during onCreate(Bundle savedInstanceState) or onResume() will keep the
+                // activity hidden during this time, to avoid flickering.
+                // This can only be done when a result is requested because
+                // that guarantees we will get information back when the
+                // activity is finished, no matter what happens to it.
+                mStartedActivity = true;
+            }
+
+        } 
+            ......
+   }&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;第一次mParent为空，因此调用的mInstrumentation.execStartActivity,类型为mInstrumentation。这里的mMainThread也是Activity类的成员变量，它的类型是ActivityThread，它代表的是应用程序的主线程。&lt;/p&gt;
+
+&lt;p&gt;这里的mToken也是Activity类的成员变量，它是一个Binder对象的远程接口。&lt;/p&gt;
+
+&lt;p&gt;看下Instrumentation的代码:&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;public ActivityResult execStartActivity(
+            Context who, IBinder contextThread, IBinder token, Activity target,
+            Intent intent, int requestCode, Bundle options) {
+        IApplicationThread whoThread = (IApplicationThread) contextThread;
+        ......        
+        try {
+            intent.setAllowFds(false);
+            intent.migrateExtraStreamToClipData();
+            int result = ActivityManagerNative.getDefault()
+                .startActivity(whoThread, intent,
+                        intent.resolveTypeIfNeeded(who.getContentResolver()),
+                        token, target != null ? target.mEmbeddedID : null,
+                        requestCode, 0, null, null, options);
+            checkStartActivityResult(result, intent);
+        } catch (RemoteException e) {
+        }
+        return null;
+    }&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt; 这里的ActivityManagerNative.getDefault返回ActivityManagerService的远程接口，即ActivityManagerProxy接口。&lt;/p&gt;
+
+&lt;p&gt;我们看ActivityManagerService.startActivity&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;public final int startActivity(IApplicationThread caller,
+            Intent intent, String resolvedType, IBinder resultTo,
+            String resultWho, int requestCode, int startFlags,
+            String profileFile, ParcelFileDescriptor profileFd, Bundle options) {
+        return startActivityAsUser(caller, intent, resolvedType, resultTo, resultWho, requestCode,
+                startFlags, profileFile, profileFd, options, UserHandle.getCallingUserId());
+    }
+
+    public final int startActivityAsUser(IApplicationThread caller,
+            Intent intent, String resolvedType, IBinder resultTo,
+            String resultWho, int requestCode, int startFlags,
+            String profileFile, ParcelFileDescriptor profileFd, Bundle options, int userId) {
+        enforceNotIsolatedCaller(&amp;quot;startActivity&amp;quot;);
+        userId = handleIncomingUser(Binder.getCallingPid(), Binder.getCallingUid(), userId,
+                false, true, &amp;quot;startActivity&amp;quot;, null);
+        return mMainStack.startActivityMayWait(caller, -1, intent, resolvedType,
+                resultTo, resultWho, requestCode, startFlags, profileFile, profileFd,
+                null, null, options, userId);
+    }&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;这里只是简单地将操作转发给成员变量mMainStack的startActivityMayWait函数，这里的mMainStack的类型为ActivityStack。
+查看startActivityMayWait&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;final int startActivityMayWait(IApplicationThread caller, int callingUid,
+            Intent intent, String resolvedType, IBinder resultTo,
+            String resultWho, int requestCode, int startFlags, String profileFile,
+            ParcelFileDescriptor profileFd, WaitResult outResult, Configuration config,
+            Bundle options, int userId) {
+
+        // Don&amp;#39;t modify the client&amp;#39;s object!
+        intent = new Intent(intent);
+
+        // Collect information about the target of the Intent.
+        ActivityInfo aInfo = resolveActivity(intent, resolvedType, startFlags,
+                profileFile, profileFd, userId);
+        .......
+        try {
+            ResolveInfo rInfo =
+            AppGlobals.getPackageManager().resolveIntent(
+                ntent, null,
+                PackageManager.MATCH_DEFAULT_ONLY
+                 | ActivityManagerService.STOCK_PM_FLAGS, userId);
+            Info = rInfo != null ? rInfo.activityInfo : null;
+            aInfo = mService.getActivityInfoForUser(aInfo, userId);
+            } catch (RemoteException e) {
+            aInfo = null;
+        }
+        int res = startActivityLocked(caller, intent, resolvedType,
+                    aInfo, resultTo, resultWho, requestCode, callingPid, callingUid,
+                    startFlags, options, componentSpecified, null);
+
+
+        return res;  
+
+    }&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;这里的代码真的很长，但是大部分不用关心：
+要注意的是·&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;try {
+            ResolveInfo rInfo =
+            AppGlobals.getPackageManager().resolveIntent(
+                ntent, null,
+                PackageManager.MATCH_DEFAULT_ONLY
+                 | ActivityManagerService.STOCK_PM_FLAGS, userId);
+            Info = rInfo != null ? rInfo.activityInfo : null;
+            aInfo = mService.getActivityInfoForUser(aInfo, userId);
+            } catch (RemoteException e) {
+            }&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;这里的aInfo就是AndroidManifest.xml里面配置的。&lt;/p&gt;
+
+&lt;p&gt; 接下去就调用startActivityLocked进一步处理了。&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;final int startActivityLocked(IApplicationThread caller,
+            Intent intent, String resolvedType, ActivityInfo aInfo, IBinder resultTo,
+            String resultWho, int requestCode,
+            int callingPid, int callingUid, int startFlags, Bundle options,
+            boolean componentSpecified, ActivityRecord[] outActivity) {
+
+        int err = ActivityManager.START_SUCCESS;
+
+         if (caller != null) {  
+            callerApp = mService.getRecordForAppLocked(caller);  
+            if (callerApp != null) {  
+                callingPid = callerApp.pid;  
+                callingUid = callerApp.info.uid;  
+            } else {  
+                ......  
+            }  
+        }  
+
+       ......
+    
+        ActivityRecord sourceRecord = null;
+        ActivityRecord resultRecord = null;
+        if (resultTo != null) {
+            int index = indexOfTokenLocked(resultTo);
+            if (DEBUG_RESULTS) Slog.v(
+                TAG, &amp;quot;Will send result to &amp;quot; + resultTo + &amp;quot; (index &amp;quot; + index + &amp;quot;)&amp;quot;);
+            if (index &amp;gt;= 0) {
+                sourceRecord = mHistory.get(index);
+                if (requestCode &amp;gt;= 0 &amp;amp;&amp;amp; !sourceRecord.finishing) {
+                    resultRecord = sourceRecord;
+                }
+            }
+        }
+
+        int launchFlags = intent.getFlags();
+
+        if ((launchFlags&amp;amp;Intent.FLAG_ACTIVITY_FORWARD_RESULT) != 0
+                &amp;amp;&amp;amp; sourceRecord != null) {
+            // Transfer the result target from the source activity to the new
+            // one being started, including any failures.
+            if (requestCode &amp;gt;= 0) {
+                ActivityOptions.abort(options);
+                return ActivityManager.START_FORWARD_AND_REQUEST_CONFLICT;
+            }
+            resultRecord = sourceRecord.resultTo;
+            resultWho = sourceRecord.resultWho;
+            requestCode = sourceRecord.requestCode;
+            sourceRecord.resultTo = null;
+            if (resultRecord != null) {
+                resultRecord.removeResultsLocked(
+                    sourceRecord, resultWho, requestCode);
+            }
+        }
+
+        if (err == ActivityManager.START_SUCCESS &amp;amp;&amp;amp; intent.getComponent() == null) {
+            // We couldn&amp;#39;t find a class that can handle the given Intent.
+            // That&amp;#39;s the end of that!
+            err = ActivityManager.START_INTENT_NOT_RESOLVED;
+        }
+
+        if (err == ActivityManager.START_SUCCESS &amp;amp;&amp;amp; aInfo == null) {
+            // We couldn&amp;#39;t find the specific class specified in the Intent.
+            // Also the end of the line.
+            err = ActivityManager.START_CLASS_NOT_FOUND;
+        }
+
+        if (err != ActivityManager.START_SUCCESS) {
+            if (resultRecord != null) {
+                sendActivityResultLocked(-1,
+                    resultRecord, resultWho, requestCode,
+                    Activity.RESULT_CANCELED, null);
+            }
+            mDismissKeyguardOnNextActivity = false;
+            ActivityOptions.abort(options);
+            return err;
+        }
+            ......
+
+        ActivityRecord r = new ActivityRecord(mService, this, callerApp, callingUid,
+                intent, resolvedType, aInfo, mService.mConfiguration,
+                resultRecord, resultWho, requestCode, componentSpecified);
+        if (outActivity != null) {
+            outActivity[0] = r;
+        }
+
+        if (mMainStack) {
+            if (mResumedActivity == null
+                    || mResumedActivity.info.applicationInfo.uid != callingUid) {
+                if (!mService.checkAppSwitchAllowedLocked(callingPid, callingUid, &amp;quot;Activity start&amp;quot;)) {
+                    PendingActivityLaunch pal = new PendingActivityLaunch();
+                    pal.r = r;
+                    pal.sourceRecord = sourceRecord;
+                    pal.startFlags = startFlags;
+                    mService.mPendingActivityLaunches.add(pal);
+                    mDismissKeyguardOnNextActivity = false;
+                    ActivityOptions.abort(options);
+                    return ActivityManager.START_SWITCHES_CANCELED;
+                }
+            }
+        
+            if (mService.mDidAppSwitch) {
+                // This is the second allowed switch since we stopped switches,
+                // so now just generally allow switches.  Use case: user presses
+                // home (switches disabled, switch to home, mDidAppSwitch now true);
+                // user taps a home icon (coming from home so allowed, we hit here
+                // and now allow anyone to switch again).
+                mService.mAppSwitchesAllowedTime = 0;
+            } else {
+                mService.mDidAppSwitch = true;
+            }
+         
+            mService.doPendingActivityLaunchesLocked(false);
+        }
+        
+        err = startActivityUncheckedLocked(r, sourceRecord,
+                startFlags, true, options);
+        if (mDismissKeyguardOnNextActivity &amp;amp;&amp;amp; mPausingActivity == null) {
+            // Someone asked to have the keyguard dismissed on the next
+            // activity start, but we are not actually doing an activity
+            // switch...  just dismiss the keyguard now, because we
+            // probably want to see whatever is behind it.
+            mDismissKeyguardOnNextActivity = false;
+            mService.mWindowManager.dismissKeyguard();
+        }
+        return err;
+    }&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;之前说的caller就是调用者的进程信息，并保存在callerApp变量中,我们这里就是Launcher的进程信息。
+resultTo则是调用的activity的信息。最终保存在sourceRecord中。
+我们要创建Activity前会创建ActivityRecord.
+ 接着调用startActivityUncheckedLocked函数进行下一步操作。&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;final int startActivityUncheckedLocked(ActivityRecord r,
+            ActivityRecord sourceRecord, int startFlags, boolean doResume,
+            Bundle options) {
+        final Intent intent = r.intent;
+        final int callingUid = r.launchedFromUid;
+
+        int launchFlags = intent.getFlags();
+        
+        ...... 
+       
+        if (sourceRecord == null) {
+            // This activity is not being started from another...  in this
+            // case we -always- start a new task.
+            launchFlags |= Intent.FLAG_ACTIVITY_NEW_TASK;
+            
+        } else if (sourceRecord.launchMode == ActivityInfo.LAUNCH_SINGLE_INSTANCE) {
+            // The original activity who is starting us is running as a single
+            // instance...  this new activity it is starting must go on its
+            // own task.
+            launchFlags |= Intent.FLAG_ACTIVITY_NEW_TASK;
+        } else if (r.launchMode == ActivityInfo.LAUNCH_SINGLE_INSTANCE
+                || r.launchMode == ActivityInfo.LAUNCH_SINGLE_TASK) {
+            // The activity being started is a single instance...  it always
+            // gets launched into its own task.
+            launchFlags |= Intent.FLAG_ACTIVITY_NEW_TASK;
+        }
+
+        if (r.resultTo != null &amp;amp;&amp;amp; (launchFlags&amp;amp;Intent.FLAG_ACTIVITY_NEW_TASK) != 0) {
+            // For whatever reason this activity is being launched into a new
+            // task...  yet the caller has requested a result back.  Well, that
+            // is pretty messed up, so instead immediately send back a cancel
+            // and let the new task continue launched as normal without a
+            // dependency on its originator.
+            Slog.w(TAG, &amp;quot;Activity is launching as a new task, so cancelling activity result.&amp;quot;);
+            sendActivityResultLocked(-1,
+                    r.resultTo, r.resultWho, r.requestCode,
+                Activity.RESULT_CANCELED, null);
+            r.resultTo = null;
+        }
+
+        boolean addingToTask = false;
+        boolean movedHome = false;
+        TaskRecord reuseTask = null;
+        if (((launchFlags&amp;amp;Intent.FLAG_ACTIVITY_NEW_TASK) != 0 &amp;amp;&amp;amp;
+                (launchFlags&amp;amp;Intent.FLAG_ACTIVITY_MULTIPLE_TASK) == 0)
+                || r.launchMode == ActivityInfo.LAUNCH_SINGLE_TASK
+                || r.launchMode == ActivityInfo.LAUNCH_SINGLE_INSTANCE) {
+            // If bring to front is requested, and no result is requested, and
+            // we can find a task that was started with this same
+            // component, then instead of launching bring that one to the front.
+            if (r.resultTo == null) {
+                ......
+            }
+    }
+
+
+        if (r.packageName != null) {
+            // If the activity being launched is the same as the one currently
+            // at the top, then we need to check if it should only be launched
+            // once.
+            ActivityRecord top = topRunningNonDelayedActivityLocked(notTop);
+            if (top != null &amp;amp;&amp;amp; r.resultTo == null) {
+                if (top.realActivity.equals(r.realActivity) &amp;amp;&amp;amp; top.userId == r.userId) {
+                    if (top.app != null &amp;amp;&amp;amp; top.app.thread != null) {
+                        if ((launchFlags&amp;amp;Intent.FLAG_ACTIVITY_SINGLE_TOP) != 0
+                            || r.launchMode == ActivityInfo.LAUNCH_SINGLE_TOP
+                            || r.launchMode == ActivityInfo.LAUNCH_SINGLE_TASK) {
+                        ......
+                            ActivityOptions.abort(options);
+                            if ((startFlags&amp;amp;ActivityManager.START_FLAG_ONLY_IF_NEEDED) != 0) {
+                                // We don&amp;#39;t need to start a new activity, and
+                                // the client said not to do anything if that
+                                // is the case, so this is it!
+                                return ActivityManager.START_RETURN_INTENT_TO_CALLER;
+                            }
+                            top.deliverNewIntentLocked(callingUid, r.intent);
+                            return ActivityManager.START_DELIVERED_TO_TOP;
+                        }
+                    }
+                }
+            }
+
+        } else {
+            if (r.resultTo != null) {
+                sendActivityResultLocked(-1,
+                        r.resultTo, r.resultWho, r.requestCode,
+                    Activity.RESULT_CANCELED, null);
+            }
+            ActivityOptions.abort(options);
+            return ActivityManager.START_CLASS_NOT_FOUND;
+        }
+
+        boolean newTask = false;
+        boolean keepCurTransition = false;
+
+        // Should this be considered a new task?
+        if (r.resultTo == null &amp;amp;&amp;amp; !addingToTask
+                &amp;amp;&amp;amp; (launchFlags&amp;amp;Intent.FLAG_ACTIVITY_NEW_TASK) != 0) {
+            if (reuseTask == null) {
+                // todo: should do better management of integers.
+                mService.mCurTask++;
+                if (mService.mCurTask &amp;lt;= 0) {
+                    mService.mCurTask = 1;
+                }
+                r.setTask(new TaskRecord(mService.mCurTask, r.info, intent), null, true);
+                if (DEBUG_TASKS) Slog.v(TAG, &amp;quot;Starting new activity &amp;quot; + r
+                        + &amp;quot; in new task &amp;quot; + r.task);
+            } else {
+                r.setTask(reuseTask, reuseTask, true);
+            }
+            newTask = true;
+            if (!movedHome) {
+                moveHomeToFrontFromLaunchLocked(launchFlags);
+            }
+            
+        } else if (sourceRecord != null) {
+            if (!addingToTask &amp;amp;&amp;amp;
+                    (launchFlags&amp;amp;Intent.FLAG_ACTIVITY_CLEAR_TOP) != 0) {
+                // In this case, we are adding the activity to an existing
+                // task, but the caller has asked to clear that task if the
+                // activity is already running.
+                ActivityRecord top = performClearTaskLocked(
+                        sourceRecord.task.taskId, r, launchFlags);
+                keepCurTransition = true;
+                if (top != null) {
+                    logStartActivity(EventLogTags.AM_NEW_INTENT, r, top.task);
+                    top.deliverNewIntentLocked(callingUid, r.intent);
+                    // For paranoia, make sure we have correctly
+                    // resumed the top activity.
+                    if (doResume) {
+                        resumeTopActivityLocked(null);
+                    }
+                    ActivityOptions.abort(options);
+                    return ActivityManager.START_DELIVERED_TO_TOP;
+                }
+            } else if (!addingToTask &amp;amp;&amp;amp;
+                    (launchFlags&amp;amp;Intent.FLAG_ACTIVITY_REORDER_TO_FRONT) != 0) {
+                ......
+        } else {
+            ......
+        }
+
+        mService.grantUriPermissionFromIntentLocked(callingUid, r.packageName,
+                intent, r.getUriPermissionsLocked());
+
+        if (newTask) {
+            EventLog.writeEvent(EventLogTags.AM_CREATE_TASK, r.userId, r.task.taskId);
+        }
+        logStartActivity(EventLogTags.AM_CREATE_ACTIVITY, r, r.task);
+        startActivityLocked(r, newTask, doResume, keepCurTransition, options);
+        return ActivityManager.START_SUCCESS;
+    }&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;这个函数更长。我们来讲解下运行过程：
+1. 函数首先获得intent的标志值，保存在launchFlags变量中。
+2. 这个intent的标志值的位Intent.FLAG_ACTIVITY_NO_USER_ACTION没有置位，因此 ，成员变量mUserLeaving的值为true。
+3. 这个intent的标志值的位Intent.FLAG_ACTIVITY_PREVIOUS_IS_TOP也没有置位，因此，变量notTop的值为null。
+4. 由于在这个例子的AndroidManifest.xml文件中，MainActivity没有配置launchMode属值，因此，这里的r.launchMode为默认值0，表示以标准（Standard，或者称为ActivityInfo.LAUNCH_MULTIPLE）的方式来启动这个Activity。Activity的启动方式有四种，其余三种分别是ActivityInfo.LAUNCH_SINGLE_INSTANCE、ActivityInfo.LAUNCH_SINGLE_TASK和ActivityInfo.LAUNCH_SINGLE_TOP，具体可以参考官方网站。
+5. 传进来的参数r.resultTo为null，表示Launcher不需要等这个即将要启动的MainActivity的执行结果
+6. 由于这个intent的标志值的位Intent.FLAG_ACTIVITY_NEW_TASK被置位，而且Intent.FLAG_ACTIVITY_MULTIPLE_TASK没有置位，因此，下面的if语句会被执行：&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;if (((launchFlags&amp;amp;Intent.FLAG_ACTIVITY_NEW_TASK) != 0 &amp;amp;&amp;amp;
+                (launchFlags&amp;amp;Intent.FLAG_ACTIVITY_MULTIPLE_TASK) == 0)
+                || r.launchMode == ActivityInfo.LAUNCH_SINGLE_TASK
+                || r.launchMode == ActivityInfo.LAUNCH_SINGLE_INSTANCE) {
+
+    if (r.resultTo == null) {  
+        // See if there is a task to bring to the front.  If this is  
+        // a SINGLE_INSTANCE activity, there can be one and only one  
+        // instance of it in the history, and it is always in its own  
+        // unique task, so we do a special search.  
+        ActivityRecord taskTop = r.launchMode != ActivityInfo.LAUNCH_SINGLE_INSTANCE  
+            ? findTaskLocked(intent, r.info)  
+            : findActivityLocked(intent, r.info);  
+        if (taskTop != null) {  
+            ......  
+        }  
+    }  
+   }&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;ol&gt;
+&lt;li&gt;这段代码的逻辑是查看一下，当前有没有Task可以用来执行这个Activity。由于r.launchMode的值不为ActivityInfo.LAUNCH_SINGLE_INSTANCE，因此，它通过findTaskLocked函数来查找存不存这样的Task，这里返回的结果是null，即taskTop为null，因此，需要创建一个新的Task来启动这个Activity。&lt;/li&gt;
+&lt;li&gt;执行到这里，我们知道，要在一个新的Task里面来启动这个Activity了，于是新创建一个Task：&lt;/li&gt;
+&lt;/ol&gt;
+
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;if (r.resultTo == null &amp;amp;&amp;amp; !addingToTask
+                &amp;amp;&amp;amp; (launchFlags&amp;amp;Intent.FLAG_ACTIVITY_NEW_TASK) != 0) {
+            if (reuseTask == null) {
+                // todo: should do better management of integers.
+                mService.mCurTask++;
+                if (mService.mCurTask &amp;lt;= 0) {
+                    mService.mCurTask = 1;
+                }
+                r.setTask(new TaskRecord(mService.mCurTask, r.info, intent), null, true);
+                if (DEBUG_TASKS) Slog.v(TAG, &amp;quot;Starting new activity &amp;quot; + r
+                        + &amp;quot; in new task &amp;quot; + r.task);
+            } else {
+                r.setTask(reuseTask, reuseTask, true);
+            }
+            newTask = true;
+            if (!movedHome) {
+                moveHomeToFrontFromLaunchLocked(launchFlags);
+            }
+            
+        }&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;新建的Task保存在r.task域中，同时，添加到mService中去，这里的mService就是ActivityManagerService了。&lt;/p&gt;
+
+&lt;p&gt;分析函数,startActivityLocked.&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;private final void startActivityLocked(ActivityRecord r, boolean newTask,
+            boolean doResume, boolean keepCurTransition, Bundle options) {
+        final int NH = mHistory.size();
+        int addPos = -1;
+        
+            .....
+        // Place a new activity at top of stack, so it is next to interact
+        // with the user.
+        if (addPos &amp;lt; 0) {
+            addPos = NH;
+        }
+        
+        // If we are not placing the new activity frontmost, we do not want
+        // to deliver the onUserLeaving callback to the actual frontmost
+        // activity
+        if (addPos &amp;lt; NH) {
+            mUserLeaving = false;
+            if (DEBUG_USER_LEAVING) Slog.v(TAG, &amp;quot;startActivity() behind front, mUserLeaving=false&amp;quot;);
+        }
+        
+        mHistory.add(addPos, r);
+        r.putInHistory();
+        r.frontOfTask = newTask;
+        if (NH &amp;gt; 0) {
+            // We want to show the starting preview window if we are
+            // switching to a new task, or the next activity&amp;#39;s process is
+            // not currently running.
+            r.updateOptionsLocked(options);
+                    .......
+            mService.mWindowManager.addAppToken(
+                    addPos, r.appToken, r.task.taskId, r.info.screenOrientation, r.fullscreen,
+                    (r.info.flags &amp;amp; ActivityInfo.FLAG_SHOW_ON_LOCK_SCREEN) != 0);
+            boolean doShow = true;
+            if (SHOW_APP_STARTING_PREVIEW &amp;amp;&amp;amp; doShow) {
+                // Figure out if we are transitioning from another activity that is
+                // &amp;quot;has the same starting icon&amp;quot; as the next one.  This allows the
+                // window manager to keep the previous window it had previously
+                // created, if it still had one.
+                ActivityRecord prev = mResumedActivity;
+                if (prev != null) {
+                    // We don&amp;#39;t want to reuse the previous starting preview if:
+                    // (1) The current activity is in a different task.
+                    if (prev.task != r.task) prev = null;
+                    // (2) The current activity is already displayed.
+                    else if (prev.nowVisible) prev = null;
+                }
+                mService.mWindowManager.setAppStartingWindow(
+                        r.appToken, r.packageName, r.theme,
+                        mService.compatibilityInfoForPackageLocked(
+                                r.info.applicationInfo), r.nonLocalizedLabel,
+                        r.labelRes, r.icon, r.windowFlags,
+                        prev != null ? prev.appToken : null, showStartingIcon);
+            }
+        } else {
+            // If this is the first activity, don&amp;#39;t do any fancy animations,
+            // because there is nothing for it to animate on top of.
+            mService.mWindowManager.addAppToken(addPos, r.appToken, r.task.taskId,
+                    r.info.screenOrientation, r.fullscreen,
+                    (r.info.flags &amp;amp; ActivityInfo.FLAG_SHOW_ON_LOCK_SCREEN) != 0);
+            ActivityOptions.abort(options);
+        }
+        if (VALIDATE_TOKENS) {
+            validateAppTokensLocked();
+        }
+
+        if (doResume) {
+            resumeTopActivityLocked(null);
+        }
+    }&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;这里的NH表示当前系统中历史任务的个数，这里肯定是大于0，因为Launcher已经跑起来了。当NH&gt;0时，并且现在要切换新任务时，要做一些任务切的界面操作，这段代码我们就不看了，这里不会影响到下面启Activity的过程，有兴趣的读取可以自己研究一下。&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;public class ActivityStack {
+
+    ......
+
+    /**
+    * Ensure that the top activity in the stack is resumed.
+    *
+    * @param prev The previously resumed activity, for when in the process
+    * of pausing; can be null to call from elsewhere.
+    *
+    * @return Returns true if something is being resumed, or false if
+    * nothing happened.
+    */
+    final boolean resumeTopActivityLocked(ActivityRecord prev) {
+        // Find the first activity that is not finishing.
+        ActivityRecord next = topRunningActivityLocked(null);
+
+        // Remember how we&amp;#39;ll process this pause/resume situation, and ensure
+        // that the state is reset however we wind up proceeding.
+        final boolean userLeaving = mUserLeaving;
+        mUserLeaving = false;
+
+        if (next == null) {
+            ......
+        }
+
+        next.delayedResume = false;
+
+        // If the top activity is the resumed one, nothing to do.
+        if (mResumedActivity == next &amp;amp;&amp;amp; next.state == ActivityState.RESUMED) {
+            ......
+        }
+
+        // If we are sleeping, and there is no resumed activity, and the top
+        // activity is paused, well that is the state we want.
+        if ((mService.mSleeping || mService.mShuttingDown)
+            &amp;amp;&amp;amp; mLastPausedActivity == next &amp;amp;&amp;amp; next.state == ActivityState.PAUSED) {
+            ......
+        }
+
+        ......
+
+        // If we are currently pausing an activity, then don&amp;#39;t do anything
+        // until that is done.
+        if (mPausingActivity != null) {
+            ......
+        }
+
+        ......
+
+        // We need to start pausing the current activity so the top one
+        // can be resumed...
+        if (mResumedActivity != null) {
+            ......
+            startPausingLocked(userLeaving, false);
+            return true;
+        }
+
+        ......
+    }
+
+    ......
+
+}&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;分析代码：
+1. 函数先通过调用topRunningActivityLocked函数获得堆栈顶端的Activity，这里就是MainActivity了。
+2. 接下来把mUserLeaving的保存在本地变量userLeaving中，然后重新设置为false，这里的userLeaving为true。
+3. 这里的mResumedActivity为Launcher，因为Launcher是当前正被执行的Activity。
+4. 当我们处理休眠状态时，mLastPausedActivity保存堆栈顶端的Activity，因为当前不是休眠状态，所以mLastPausedActivity为null。
+5. 这样我们理解后面的代码就明白了&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;// If the top activity is the resumed one, nothing to do.
+    if (mResumedActivity == next &amp;amp;&amp;amp; next.state == ActivityState.RESUMED) {
+    ......
+    }
+
+    // If we are sleeping, and there is no resumed activity, and the top
+    // activity is paused, well that is the state we want.
+    if ((mService.mSleeping || mService.mShuttingDown)
+    &amp;amp;&amp;amp; mLastPausedActivity == next &amp;amp;&amp;amp; next.state == ActivityState.PAUSED) {
+    ......
+    }&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;ol&gt;
+&lt;li&gt;&lt;p&gt;它首先看要启动的Activity是否就是当前处理Resumed状态的Activity，如果是的话，那就什么都不用做，直接返回就可以了；否则再看一下系统当前是否休眠状态，如果是的话，再看看要启动的Activity是否就是当前处于堆栈顶端的Activity，如果是的话，也是什么都不用做。&lt;/p&gt;&lt;/li&gt;
+&lt;li&gt;&lt;p&gt;上面两个条件都不满足，因此，在继续往下执行之前，首先要把当处于Resumed状态的Activity推入Paused状态，然后才可以启动新的Activity。但是在将当前这个Resumed状态的Activity推入Paused状态之前，首先要看一下当前是否有Activity正在进入Pausing状态，如果有的话，当前这个Resumed状态的Activity就要稍后才能进入Paused状态了，这样就保证了所有需要进入Paused状态的Activity串行处理。&lt;/p&gt;&lt;/li&gt;
+&lt;li&gt;这里没有处于Pausing状态的Activity，即mPausingActivity为null，而且mResumedActivity也不为null，于是就调用startPausingLocked函数把Launcher推入Paused状态去了。&lt;/li&gt;
+&lt;/ol&gt;
+
+
+&lt;p&gt;查看函数ActivityStack.startPausingLocked:&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;public class ActivityStack {
+
+    ......
+
+    private final void startPausingLocked(boolean userLeaving, boolean uiSleeping) {
+        if (mPausingActivity != null) {
+            ......
+        }
+        ActivityRecord prev = mResumedActivity;
+        if (prev == null) {
+            ......
+        }
+        ......
+        mResumedActivity = null;
+        mPausingActivity = prev;
+        mLastPausedActivity = prev;
+        prev.state = ActivityState.PAUSING;
+        ......
+
+        if (prev.app != null &amp;amp;&amp;amp; prev.app.thread != null) {
+            ......
+            try {
+                ......
+                prev.app.thread.schedulePauseActivity(prev, prev.finishing, userLeaving,
+                    prev.configChangeFlags);
+                ......
+            } catch (Exception e) {
+                ......
+            }
+        } else {
+            ......
+        }
+
+        ......
+    
+    }
+
+    ......
+
+}&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;ol&gt;
+&lt;li&gt;函数首先把mResumedActivity保存在本地变量prev中。在上一步中，说到mResumedActivity就是Launcher，因此，这里把Launcher进程中的ApplicationThread对象取出来，通过它来通知Launcher这个Activity它要进入Paused状态了。当然，这里的prev.app.thread是一个ApplicationThread对象的远程接口，通过调用这个远程接口的schedulePauseActivity来通知Launcher进入Paused状态。&lt;/li&gt;
+&lt;li&gt;参数prev.finishing表示prev所代表的Activity是否正在等待结束的Activity列表中，由于Laucher这个Activity还没结束，所以这里为false；参数prev.configChangeFlags表示哪些config发生了变化，这里我们不关心它的值。&lt;/li&gt;
+&lt;li&gt;这里的调用的ApplicationThreadProxy.schedulePauseActivity,对应的service端代码为ApplicationThread.schedulePauseActivity.&lt;/li&gt;
+&lt;/ol&gt;
+
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;public final class ActivityThread {
+    
+    ......
+
+    private final class ApplicationThread extends ApplicationThreadNative {
+        
+        ......
+
+        public final void schedulePauseActivity(IBinder token, boolean finished,
+                boolean userLeaving, int configChanges) {
+            queueOrSendMessage(
+                finished ? H.PAUSE_ACTIVITY_FINISHING : H.PAUSE_ACTIVITY,
+                token,
+                (userLeaving ? 1 : 0),
+                configChanges);
+        }
+
+        ......
+
+    }
+
+    // if the thread hasn&amp;#39;t started yet, we don&amp;#39;t have the handler, so just
+    // save the messages until we&amp;#39;re ready.
+    private void queueOrSendMessage(int what, Object obj) {
+        queueOrSendMessage(what, obj, 0, 0);
+    }
+
+    private void queueOrSendMessage(int what, Object obj, int arg1, int arg2) {
+        synchronized (this) {
+            if (DEBUG_MESSAGES) Slog.v(
+                TAG, &amp;quot;SCHEDULE &amp;quot; + what + &amp;quot; &amp;quot; + mH.codeToString(what)
+                + &amp;quot;: &amp;quot; + arg1 + &amp;quot; / &amp;quot; + obj);
+            Message msg = Message.obtain();
+            msg.what = what;
+            msg.obj = obj;
+            msg.arg1 = arg1;
+            msg.arg2 = arg2;
+            mH.sendMessage(msg);
+        }
+    }
+
+    ......
+    private class H extends Handler {
+
+
+        public void handleMessage(Message msg) {
+        ......
+                case PAUSE_ACTIVITY:
+                    Trace.traceBegin(Trace.TRACE_TAG_ACTIVITY_MANAGER, &amp;quot;activityPause&amp;quot;);
+                    handlePauseActivity((IBinder)msg.obj, false, msg.arg1 != 0, msg.arg2);
+                    maybeSnapshot();
+                    Trace.traceEnd(Trace.TRACE_TAG_ACTIVITY_MANAGER);
+                    break;
+                case PAUSE_ACTIVITY_FINISHING:
+                    Trace.traceBegin(Trace.TRACE_TAG_ACTIVITY_MANAGER, &amp;quot;activityPause&amp;quot;);
+                    handlePauseActivity((IBinder)msg.obj, true, msg.arg1 != 0, msg.arg2);
+                    Trace.traceEnd(Trace.TRACE_TAG_ACTIVITY_MANAGER);
+                    break;
+        ......
+
+        }
+    }
+
+    private void handlePauseActivity(IBinder token, boolean finished,
+            boolean userLeaving, int configChanges) {
+        ActivityClientRecord r = mActivities.get(token);
+        if (r != null) {
+            //Slog.v(TAG, &amp;quot;userLeaving=&amp;quot; + userLeaving + &amp;quot; handling pause of &amp;quot; + r);
+            if (userLeaving) {
+                performUserLeavingActivity(r);
+            }
+
+            r.activity.mConfigChangeFlags |= configChanges;
+            performPauseActivity(token, finished, r.isPreHoneycomb());
+
+            // Make sure any pending writes are now committed.
+            if (r.isPreHoneycomb()) {
+                QueuedWork.waitToFinish();
+            }
+
+            // Tell the activity manager we have paused.
+            try {
+                ActivityManagerNative.getDefault().activityPaused(token);
+            } catch (RemoteException ex) {
+            }
+        }
+    }
+
+    ......
+
+}&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;最终要看的函数其实就是handlePauseActivity,函数首先将Binder引用token转换成ActivityRecord的远程接口ActivityClientRecord，然后做了三个事情:
+1. 如果userLeaving为true，则通过调用performUserLeavingActivity函数来调用Activity.onUserLeaveHint通知Activity，用户要离开它了.
+2. 调用performPauseActivity函数来调用Activity.onPause函数，我们知道，在Activity的生命周期中，当它要让位于其它的Activity时，系统就会调用它的onPause函数.
+3. 它通知ActivityManagerService，这个Activity已经进入Paused状态了，ActivityManagerService现在可以完成未竟的事情，即启动MainActivity了。&lt;/p&gt;
+
+&lt;p&gt;这里的ActivityManagerNative.getDefault() 最终指向的是ActivityManagerService。
+ActivityManagerService.activityPaused():&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;public final void activityPaused(IBinder token) {
+        final long origId = Binder.clearCallingIdentity();
+        mMainStack.activityPaused(token, false);
+        Binder.restoreCallingIdentity(origId);
+    }&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;又再次进入到ActivityStack类中，执行activityPaused函数。
+这个函数定义在frameworks/base/services/java/com/android/server/am/ActivityStack.java文件中&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;final void activityPaused(IBinder token, boolean timeout) {
+        if (DEBUG_PAUSE) Slog.v(
+            TAG, &amp;quot;Activity paused: token=&amp;quot; + token + &amp;quot;, timeout=&amp;quot; + timeout);
+
+        ActivityRecord r = null;
+
+        synchronized (mService) {
+            int index = indexOfTokenLocked(token);
+            if (index &amp;gt;= 0) {
+                r = mHistory.get(index);
+                mHandler.removeMessages(PAUSE_TIMEOUT_MSG, r);
+                if (mPausingActivity == r) {
+                    if (DEBUG_STATES) Slog.v(TAG, &amp;quot;Moving to PAUSED: &amp;quot; + r
+                            + (timeout ? &amp;quot; (due to timeout)&amp;quot; : &amp;quot; (pause complete)&amp;quot;));
+                    r.state = ActivityState.PAUSED;
+                    completePauseLocked();
+                } else {
+                    EventLog.writeEvent(EventLogTags.AM_FAILED_TO_PAUSE,
+                            r.userId, System.identityHashCode(r), r.shortComponentName, 
+                            mPausingActivity != null
+                                ? mPausingActivity.shortComponentName : &amp;quot;(none)&amp;quot;);
+                }
+            }
+        }
+    }&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;这里通过参数token在mHistory列表中得到ActivityRecord，从上面我们知道，这个ActivityRecord代表的是Launcher这个Activity,之前将Launcher这个Activity的信息保存在mPausingActivity中，因此，这里mPausingActivity等于r，于是，执行completePauseLocked操作。
+ActivityStack.completePauseLocked&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;public class ActivityStack {
+
+    ......
+
+    private final void completePauseLocked() {
+        ActivityRecord prev = mPausingActivity;
+        
+        ......
+
+        if (prev != null) {
+
+            ......
+
+            mPausingActivity = null;
+        }
+
+        if (!mService.mSleeping &amp;amp;&amp;amp; !mService.mShuttingDown) {
+            resumeTopActivityLocked(prev);
+        } else {
+            ......
+        }
+
+        ......
+    }
+
+    ......
+
+}&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;函数首先把mPausingActivity变量清空，因为现在不需要它了，然后调用resumeTopActivityLokced进一步操作，它传入的参数即为代表Launcher这个Activity的ActivityRecord。&lt;/p&gt;
+
+&lt;p&gt;再次看看我们熟悉的resumeTopActivityLocked.&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;public class ActivityStack {
+
+    ......
+
+    final boolean resumeTopActivityLocked(ActivityRecord prev) {
+        ......
+
+        // Find the first activity that is not finishing.
+        ActivityRecord next = topRunningActivityLocked(null);
+
+        // Remember how we&amp;#39;ll process this pause/resume situation, and ensure
+        // that the state is reset however we wind up proceeding.
+        final boolean userLeaving = mUserLeaving;
+        mUserLeaving = false;
+
+        ......
+
+        next.delayedResume = false;
+
+        // If the top activity is the resumed one, nothing to do.
+        if (mResumedActivity == next &amp;amp;&amp;amp; next.state == ActivityState.RESUMED) {
+            ......
+            return false;
+        }
+
+        // If we are sleeping, and there is no resumed activity, and the top
+        // activity is paused, well that is the state we want.
+        if ((mService.mSleeping || mService.mShuttingDown)
+            &amp;amp;&amp;amp; mLastPausedActivity == next &amp;amp;&amp;amp; next.state == ActivityState.PAUSED) {
+            ......
+            return false;
+        }
+
+        .......
+
+
+        // We need to start pausing the current activity so the top one
+        // can be resumed...
+        if (mResumedActivity != null) {
+            ......
+            return true;
+        }
+
+        ......
+
+
+        if (next.app != null &amp;amp;&amp;amp; next.app.thread != null) {
+            ......
+
+        } else {
+            ......
+            startSpecificActivityLocked(next, true, true);
+        }
+
+        return true;
+    }
+    ......
+}&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;我们知道，当前在堆栈顶端的Activity为我们即将要启动的MainActivity，这里通过调用topRunningActivityLocked将它取回来，保存在next变量中。之前最后一个Resumed状态的Activity，即Launcher，到了这里已经处于Paused状态了，因此，mResumedActivity为null。最后一个处于Paused状态的Activity为Launcher，因此，这里的mLastPausedActivity就为Launcher。前面我们为MainActivity创建了ActivityRecord后，它的app域一直保持为null。有了这些信息后，上面这段代码就容易理解了，它最终调用startSpecificActivityLocked进行下一步操作。
+查看 startSpecificActivityLocked函数:&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;public class ActivityStack {
+
+    ......
+
+    private final void startSpecificActivityLocked(ActivityRecord r,
+            boolean andResume, boolean checkConfig) {
+        // Is this activity&amp;#39;s application already running?
+        ProcessRecord app = mService.getProcessRecordLocked(r.processName,
+            r.info.applicationInfo.uid);
+
+        ......
+
+        if (app != null &amp;amp;&amp;amp; app.thread != null) {
+            try {
+                realStartActivityLocked(r, app, andResume, checkConfig);
+                return;
+            } catch (RemoteException e) {
+                ......
+            }
+        }
+
+        mService.startProcessLocked(r.processName, r.info.applicationInfo, true, 0,
+            &amp;quot;activity&amp;quot;, r.intent.getComponent(), false);
+    }
+    ......
+}&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;由于第一次启动这个应用APP，所以app为null，执行mService.startProcessLocked.
+也就是调用的ActivityManagerService.startProcessLocked.
+查看函数startProcessLocked.&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;public final class ActivityManagerService extends ActivityManagerNative
+        implements Watchdog.Monitor, BatteryStatsImpl.BatteryCallback {
+
+    ......
+
+    final ProcessRecord startProcessLocked(String processName,
+            ApplicationInfo info, boolean knownToBeDead, int intentFlags,
+            String hostingType, ComponentName hostingName, boolean allowWhileBooting) {
+
+        ProcessRecord app = getProcessRecordLocked(processName, info.uid);
+        
+        ......
+
+        String hostingNameStr = hostingName != null
+            ? hostingName.flattenToShortString() : null;
+
+        ......
+
+        if (app == null) {
+            app = newProcessRecordLocked(null, info, processName);
+            mProcessNames.put(processName, info.uid, app);
+        } else {
+            // If this is a new package in the process, add the package to the list
+            app.addPackage(info.packageName);
+        }
+
+        ......
+
+        startProcessLocked(app, hostingType, hostingNameStr);
+        return (app.pid != 0) ? app : null;
+    }
+    ......
+}&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;这里会根据pid跟processname去检查ProcessRecord是否存在，如果不存在则生成新的record.我们这里是不存在的.所以会new出新的record，然后最后执行startProcessLocked。&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;public final class ActivityManagerService extends ActivityManagerNative
+        implements Watchdog.Monitor, BatteryStatsImpl.BatteryCallback {
+
+    ......
+
+    private final void startProcessLocked(ProcessRecord app,
+                String hostingType, String hostingNameStr) {
+
+        ......
+
+        try {
+            int uid = app.info.uid;
+            int[] gids = null;
+            try {
+                gids = mContext.getPackageManager().getPackageGids(
+                    app.info.packageName);
+            } catch (PackageManager.NameNotFoundException e) {
+                ......
+            }
+            
+            ......
+
+            int debugFlags = 0;
+            
+            ......
+            
+            // Start the process.  It will either succeed and return a result containing
+            // the PID of the new process, or else throw a RuntimeException.
+            Process.ProcessStartResult startResult = Process.start(&amp;quot;android.app.ActivityThread&amp;quot;,
+                    app.processName, uid, uid, gids, debugFlags, mountExternal,
+                    app.info.targetSdkVersion, null, null);         
+            ......
+
+            if (app.persistent) {
+                Watchdog.getInstance().processStarted(app.processName, startResult.pid);
+            }
+
+        } catch (RuntimeException e) {
+            
+            ......
+
+        }
+    }
+
+    ......
+
+}&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;这里主要是调用Process.start接口来创建一个新的进程，新的进程会导入android.app.ActivityThread类，并且执行它的main函数，这就是为什么我们前面说每一个应用程序都有一个ActivityThread实例来对应的原因。
+查看ActivityThread.java的main方法。&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;public final class ActivityThread {
+
+    ......
+
+    private final void attach(boolean system) {
+        ......
+
+        mSystemThread = system;
+        if (!system) {
+
+            ......
+
+            IActivityManager mgr = ActivityManagerNative.getDefault();
+            try {
+                mgr.attachApplication(mAppThread);
+            } catch (RemoteException ex) {
+            }
+        } else {
+
+            ......
+
+        }
+    }
+
+    ......
+
+    public static final void main(String[] args) {
+        
+        .......
+
+        ActivityThread thread = new ActivityThread();
+        thread.attach(false);
+
+        ......
+
+        Looper.loop();
+
+        .......
+
+        thread.detach();
+        
+        ......
+    }
+}&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt; 这个函数在进程中创建一个ActivityThread实例，然后调用它的attach函数，接着就进入消息循环了，直到最后进程退出。
+ 函数attach最终调用了ActivityManagerService的远程接口ActivityManagerProxy的attachApplication函数，传入的参数是mAppThread，这是一个ApplicationThread类型的Binder对象，它的作用是用来进行进程间通信的。
+查看代码 ActivityManagerService.attachApplication&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;public final void attachApplication(IApplicationThread thread) {
+        synchronized (this) {
+            int callingPid = Binder.getCallingPid();
+            final long origId = Binder.clearCallingIdentity();
+            attachApplicationLocked(thread, callingPid);
+            Binder.restoreCallingIdentity(origId);
+        }
+    }
+
+
+private final boolean attachApplicationLocked(IApplicationThread thread,
+            int pid) {
+
+        // Find the application record that is being attached...  either via
+        // the pid if we are running in multiple processes, or just pull the
+        // next app record if we are emulating process with anonymous threads.
+        ProcessRecord app;
+
+        ......
+
+        if (pid != MY_PID &amp;amp;&amp;amp; pid &amp;gt;= 0) {
+            synchronized (mPidsSelfLocked) {
+                app = mPidsSelfLocked.get(pid);
+            }
+        } else {
+            app = null;
+        }
+
+        ......
+
+        String processName = app.processName;
+        try {
+            AppDeathRecipient adr = new AppDeathRecipient(
+                    app, pid, thread);
+            thread.asBinder().linkToDeath(adr, 0);
+            app.deathRecipient = adr;
+        } catch (RemoteException e) {
+            app.resetPackageList();
+            startProcessLocked(app, &amp;quot;link fail&amp;quot;, processName);
+            return false;
+        }
+        
+        app.thread = thread;
+        app.curAdj = app.setAdj = -100;
+        app.curSchedGroup = Process.THREAD_GROUP_DEFAULT;
+        app.setSchedGroup = Process.THREAD_GROUP_BG_NONINTERACTIVE;
+        app.forcingToForeground = null;
+        app.foregroundServices = false;
+        app.hasShownUi = false;
+        app.debugging = false;
+
+        mHandler.removeMessages(PROC_START_TIMEOUT_MSG, app);
+
+        boolean normalMode = mProcessesReady || isAllowedWhileBooting(app.info);
+        List providers = normalMode ? generateApplicationProvidersLocked(app) : null;
+
+        // Remove this record from the list of starting applications.
+        mPersistentStartingProcesses.remove(app);
+
+        mProcessesOnHold.remove(app);
+
+        boolean badApp = false;
+        boolean didSomething = false;
+
+        // See if the top visible activity is waiting to run in this process...
+        ActivityRecord hr = mMainStack.topRunningActivityLocked(null);
+        if (hr != null &amp;amp;&amp;amp; normalMode) {
+            if (hr.app == null &amp;amp;&amp;amp; app.uid == hr.info.applicationInfo.uid
+                    &amp;amp;&amp;amp; processName.equals(hr.processName)) {
+                try {
+                    if (mHeadless) {
+                        Slog.e(TAG, &amp;quot;Starting activities not supported on headless device: &amp;quot; + hr);
+                    } else if (mMainStack.realStartActivityLocked(hr, app, true, true)) {
+                        didSomething = true;
+                    }
+                } catch (Exception e) {
+                    badApp = true;
+                }
+            } else {
+                mMainStack.ensureActivitiesVisibleLocked(hr, null, processName, 0);
+            }
+        }
+
+        // Find any services that should be running in this process...
+        if (!badApp) {
+            try {
+                didSomething |= mServices.attachApplicationLocked(app, processName);
+            } catch (Exception e) {
+                badApp = true;
+            }
+        }
+
+        // Check if a next-broadcast receiver is in this process...
+        if (!badApp &amp;amp;&amp;amp; isPendingBroadcastProcessLocked(pid)) {
+            try {
+                didSomething = sendPendingBroadcastsLocked(app);
+            } catch (Exception e) {
+                // If the app died trying to launch the receiver we declare it &amp;#39;bad&amp;#39;
+                badApp = true;
+            }
+        }
+        ......
+
+        return true;
+    }&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;  已经创建了一个ProcessRecord，这里首先通过pid将它取回来，放在app变量中，然后对app的其它成员进行初始化，最后调用mMainStack.realStartActivityLocked执行真正的Activity启动操作。这里要启动的Activity通过调用mMainStack.topRunningActivityLocked(null)从堆栈顶端取回来，这时候在堆栈顶端的Activity就是MainActivity了。
+查看ActivityStack.java的realStartActivityLocked&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;public class ActivityStack {
+
+    ......
+
+    final boolean realStartActivityLocked(ActivityRecord r,
+            ProcessRecord app, boolean andResume, boolean checkConfig)
+            throws RemoteException {
+        
+        ......
+
+        r.app = app;
+
+        ......
+
+        int idx = app.activities.indexOf(r);
+        if (idx &amp;lt; 0) {
+            app.activities.add(r);
+        }
+        
+        ......
+
+        try {
+            ......
+
+            List&amp;lt;ResultInfo&amp;gt; results = null;
+            List&amp;lt;Intent&amp;gt; newIntents = null;
+            if (andResume) {
+                results = r.results;
+                newIntents = r.newIntents;
+            }
+    
+            ......
+            
+            app.thread.scheduleLaunchActivity(new Intent(r.intent), r,
+                System.identityHashCode(r),
+                r.info, r.icicle, results, newIntents, !andResume,
+                mService.isNextTransitionForward());
+
+            ......
+
+        } catch (RemoteException e) {
+            ......
+        }
+
+        ......
+
+        return true;
+    }
+
+    ......
+
+}&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;这里最终通过app.thread进入到ApplicationThreadProxy的scheduleLaunchActivity函数中，注意，这里的第二个参数r，是一个ActivityRecord类型的Binder对象，用来作来这个Activity的token值。调用的远端的ActivityThread.的scheduleLaunchActivity函数.&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;public final void scheduleLaunchActivity(Intent intent, IBinder token, int ident,
+                ActivityInfo info, Configuration curConfig, CompatibilityInfo compatInfo,
+                Bundle state, List&amp;lt;ResultInfo&amp;gt; pendingResults,
+                List&amp;lt;Intent&amp;gt; pendingNewIntents, boolean notResumed, boolean isForward,
+                String profileName, ParcelFileDescriptor profileFd, boolean autoStopProfiler) {
+            ActivityClientRecord r = new ActivityClientRecord();
+
+            r.token = token;
+            r.ident = ident;
+            r.intent = intent;
+            r.activityInfo = info;
+            r.compatInfo = compatInfo;
+            r.state = state;
+
+            r.pendingResults = pendingResults;
+            r.pendingIntents = pendingNewIntents;
+
+            r.startsNotResumed = notResumed;
+            r.isForward = isForward;
+
+            r.profileFile = profileName;
+            r.profileFd = profileFd;
+            r.autoStopProfiler = autoStopProfiler;
+
+            updatePendingConfiguration(curConfig);
+
+            queueOrSendMessage(H.LAUNCH_ACTIVITY, r);
+        }
+
+    private final class H extends Handler {
+
+        ......
+
+        public void handleMessage(Message msg) {
+            ......
+            switch (msg.what) {
+            case LAUNCH_ACTIVITY: {
+                ActivityClientRecord r = (ActivityClientRecord)msg.obj;
+
+                r.packageInfo = getPackageInfoNoCheck(
+                    r.activityInfo.applicationInfo);
+                handleLaunchActivity(r, null);
+            } break;
+            ......
+            }
+
+        ......
+
+    }
+
+    private void handleLaunchActivity(ActivityClientRecord r, Intent customIntent) {
+        // If we are getting ready to gc after going to the background, well
+        // we are back active so skip it.
+        unscheduleGcIdler();
+
+        ......
+        Activity a = performLaunchActivity(r, customIntent);
+        ......
+        if (a != null) {
+            r.createdConfig = new Configuration(mConfiguration);
+            Bundle oldState = r.state;
+            handleResumeActivity(r.token, false, r.isForward,
+                    !r.activity.mFinished &amp;amp;&amp;amp; !r.startsNotResumed);
+        ......
+
+    }
+    ......
+}&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;ol&gt;
+&lt;li&gt;这里首先调用performLaunchActivity函数来加载这个Activity类，在performLaunchActivity中，如果没有application会先创建新的application，并调用application的onCreate方法。&lt;/li&gt;
+&lt;li&gt;最后回到handleLaunchActivity函数时，再调用handleResumeActivity函数来使这个Activity进入Resumed状态，即会调用这个Activity的onResume函数，这是遵循Activity的生命周期的。
+performLaunchActivity函数代码:&lt;/li&gt;
+&lt;/ol&gt;
+
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;private Activity performLaunchActivity(ActivityClientRecord r, Intent customIntent) {
+        ActivityInfo aInfo = r.activityInfo;
+        if (r.packageInfo == null) {
+            r.packageInfo = getPackageInfo(aInfo.applicationInfo, r.compatInfo,
+                    Context.CONTEXT_INCLUDE_CODE);
+        }
+
+        ComponentName component = r.intent.getComponent();
+        if (component == null) {
+            component = r.intent.resolveActivity(
+                mInitialApplication.getPackageManager());
+            r.intent.setComponent(component);
+        }
+
+        if (r.activityInfo.targetActivity != null) {
+            component = new ComponentName(r.activityInfo.packageName,
+                    r.activityInfo.targetActivity);
+        }
+
+        Activity activity = null;
+        try {
+            java.lang.ClassLoader cl = r.packageInfo.getClassLoader();
+            activity = mInstrumentation.newActivity(
+                    cl, component.getClassName(), r.intent);
+            StrictMode.incrementExpectedActivityCount(activity.getClass());
+            r.intent.setExtrasClassLoader(cl);
+            if (r.state != null) {
+                r.state.setClassLoader(cl);
+            }
+        } catch (Exception e) {
+
+        }
+
+        try {
+            Application app = r.packageInfo.makeApplication(false, mInstrumentation);
+
+            if (activity != null) {
+                Context appContext = createBaseContextForActivity(r, activity);
+                CharSequence title = r.activityInfo.loadLabel(appContext.getPackageManager());
+                Configuration config = new Configuration(mCompatConfiguration);
+                if (DEBUG_CONFIGURATION) Slog.v(TAG, &amp;quot;Launching activity &amp;quot;
+                        + r.activityInfo.name + &amp;quot; with config &amp;quot; + config);
+                activity.attach(appContext, this, getInstrumentation(), r.token,
+                        r.ident, app, r.intent, r.activityInfo, title, r.parent,
+                        r.embeddedID, r.lastNonConfigurationInstances, config);
+
+                if (customIntent != null) {
+                    activity.mIntent = customIntent;
+                }
+                r.lastNonConfigurationInstances = null;
+                activity.mStartedActivity = false;
+                int theme = r.activityInfo.getThemeResource();
+                if (theme != 0) {
+                    activity.setTheme(theme);
+                }
+
+                activity.mCalled = false;
+                mInstrumentation.callActivityOnCreate(activity, r.state);
+                if (!activity.mCalled) {
+                    throw new SuperNotCalledException(
+                        &amp;quot;Activity &amp;quot; + r.intent.getComponent().toShortString() +
+                        &amp;quot; did not call through to super.onCreate()&amp;quot;);
+                }
+                r.activity = activity;
+                r.stopped = true;
+                if (!r.activity.mFinished) {
+                    activity.performStart();
+                    r.stopped = false;
+                }
+                if (!r.activity.mFinished) {
+                    if (r.state != null) {
+                        mInstrumentation.callActivityOnRestoreInstanceState(activity, r.state);
+                    }
+                }
+                if (!r.activity.mFinished) {
+                    activity.mCalled = false;
+                    mInstrumentation.callActivityOnPostCreate(activity, r.state);
+                    if (!activity.mCalled) {
+                        throw new SuperNotCalledException(
+                            &amp;quot;Activity &amp;quot; + r.intent.getComponent().toShortString() +
+                            &amp;quot; did not call through to super.onPostCreate()&amp;quot;);
+                    }
+                }
+            }
+            r.paused = true;
+
+            mActivities.put(r.token, r);
+
+        } catch (SuperNotCalledException e) {
+            throw e;
+
+        } catch (Exception e) {
+            if (!mInstrumentation.onException(activity, e)) {
+                throw new RuntimeException(
+                    &amp;quot;Unable to start activity &amp;quot; + component
+                    + &amp;quot;: &amp;quot; + e.toString(), e);
+            }
+        }
+
+        return activity;
+    }&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;函数前面是收集要启动的Activity的相关信息，主要package和component信息&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;ActivityInfo aInfo = r.activityInfo;
+   if (r.packageInfo == null) {
+        r.packageInfo = getPackageInfo(aInfo.applicationInfo,
+                Context.CONTEXT_INCLUDE_CODE);
+   }
+
+   ComponentName component = r.intent.getComponent();
+   if (component == null) {
+       component = r.intent.resolveActivity(
+           mInitialApplication.getPackageManager());
+       r.intent.setComponent(component);
+   }
+
+   if (r.activityInfo.targetActivity != null) {
+       component = new ComponentName(r.activityInfo.packageName,
+               r.activityInfo.targetActivity);
+   }&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt; 然后通过ClassLoader将目标的Activity的new出来&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;Activity activity = null;
+   try {
+    java.lang.ClassLoader cl = r.packageInfo.getClassLoader();
+    activity = mInstrumentation.newActivity(
+        cl, component.getClassName(), r.intent);
+    r.intent.setExtrasClassLoader(cl);
+    if (r.state != null) {
+        r.state.setClassLoader(cl);
+    }
+   } catch (Exception e) {
+    ......
+   }&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;接下来是创建Application对象，这是根据AndroidManifest.xml配置文件中的Application标签的信息来创建的：&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;Application app = r.packageInfo.makeApplication(false, mInstrumentation);&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;后面的代码主要创建Activity的上下文信息，并通过attach方法将这些上下文信息设置到MainActivity中去：&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;Context appContext = createBaseContextForActivity(r, activity);
+                CharSequence title = r.activityInfo.loadLabel(appContext.getPackageManager());
+                Configuration config = new Configuration(mCompatConfiguration);
+                activity.attach(appContext, this, getInstrumentation(), r.token,
+                        r.ident, app, r.intent, r.activityInfo, title, r.parent,
+                        r.embeddedID, r.lastNonConfigurationInstances, config);
+
+                if (customIntent != null) {
+                    activity.mIntent = customIntent;
+                }
+                r.lastNonConfigurationInstances = null;
+                activity.mStartedActivity = false;
+                int theme = r.activityInfo.getThemeResource();
+                if (theme != 0) {
+                    activity.setTheme(theme);
+                }&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;最后还要调用MainActivity的onCreate函数：&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;mInstrumentation.callActivityOnCreate(activity, r.state);&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;h3&gt;结论&lt;/h3&gt;
+
+&lt;p&gt;1.androd的底层实现是通过socket和共享内存的方式，这种写法也可以采用在我们自己的多进程通信上使用，值得学习
+2.底层所有的event其实都是一样的，都是inputEvent，上层会根据source再分成keyEvent,MotionEvent等，用于不同的用处
+3.所有View的起点其实就是dispatchPointerEvent()，这个是分发事件的起点.&lt;/p&gt;
+
+&lt;h3&gt;参考blog&lt;/h3&gt;
+</content>
+   </entry>
+   
+   <entry>
+     <title>Binder_analyse</title>
+     <link href="http://beiyuu.com/binder_analyse"/>
+     <updated>2015-01-15T00:00:00+08:00</updated>
+     <id>http://beiyuu.com/binder_analyse</id>
+     <content type="html">&lt;p&gt;所有代码研究基于android4.2.2_R1&lt;/p&gt;
+
+&lt;h1&gt;从MediaService开始分析&lt;/h1&gt;
+
+&lt;h2&gt;MediaService分析&lt;/h2&gt;
+
+&lt;p&gt;framework\base\Media\MediaServer\Main_mediaserver.cpp&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;int main(int argc, char** argv)
+{
+
+//获得一个ProcessState实例
+    sp&amp;lt;ProcessState&amp;gt; proc(ProcessState::self());
+
+    //得到一个ServiceManager对象
+    sp&amp;lt;IServiceManager&amp;gt; sm = defaultServiceManager();
+    ALOGI(&amp;quot;ServiceManager: %p&amp;quot;, sm.get());
+    AudioFlinger::instantiate();
+    MediaPlayerService::instantiate();//初始化MediaPlayerService服务
+    CameraService::instantiate();
+    AudioPolicyService::instantiate();
+    ProcessState::self()-&amp;gt;startThreadPool(); 
+    IPCThreadState::self()-&amp;gt;joinThreadPool();
+}&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;h2&gt;ProcessState的&lt;/h2&gt;
+
+&lt;p&gt;主要关注的是ProcessState,第一行就调用的是ProcessState::self().&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;sp&amp;lt;ProcessState&amp;gt; ProcessState::self()
+{
+    Mutex::Autolock _l(gProcessMutex);
+    if (gProcess != NULL) {
+        return gProcess;
+    }
+    gProcess = new ProcessState;
+    return gProcess;
+}&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;ProcessState的构造函数&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;ProcessState::ProcessState()
+    : mDriverFD(open_driver())
+    , mVMStart(MAP_FAILED)
+    , mManagesContexts(false)
+    , mBinderContextCheckFunc(NULL)
+    , mBinderContextUserData(NULL)
+    , mThreadPoolStarted(false)
+    , mThreadPoolSeq(1)
+{
+    if (mDriverFD &amp;gt;= 0) {
+        // XXX Ideally, there should be a specific define for whether we
+        // have mmap (or whether we could possibly have the kernel module
+        // availabla).
+#if !defined(HAVE_WIN32_IPC)
+        // mmap the binder, providing a chunk of virtual address space to receive transactions.
+        mVMStart = mmap(0, BINDER_VM_SIZE, PROT_READ, MAP_PRIVATE | MAP_NORESERVE, mDriverFD, 0);
+        if (mVMStart == MAP_FAILED) {
+            // *sigh*
+            ALOGE(&amp;quot;Using /dev/binder failed: unable to mmap transaction memory.\n&amp;quot;);
+            close(mDriverFD);
+            mDriverFD = -1;
+        }
+#else
+        mDriverFD = -1;
+#endif
+    }
+
+    LOG_ALWAYS_FATAL_IF(mDriverFD &amp;lt; 0, &amp;quot;Binder driver could not be opened.  Terminating.&amp;quot;);
+}&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;这里已经调用open_driver()，open_driver，就是打开/dev/binder这个设备，这个是android在内核中搞的一个专门用于完成
+进程间通讯而设置的一个虚拟的设备。BTW，说白了就是内核的提供的一个机制，这个和我们用socket加NET_LINK方式和内核通讯是一个道理。&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;static int open_driver()
+{
+    int fd = open(&amp;quot;/dev/binder&amp;quot;, O_RDWR);
+    if (fd &amp;gt;= 0) {
+        fcntl(fd, F_SETFD, FD_CLOEXEC);
+        int vers;
+        status_t result = ioctl(fd, BINDER_VERSION, &amp;amp;vers);
+        if (result == -1) {
+            ALOGE(&amp;quot;Binder ioctl to obtain version failed: %s&amp;quot;, strerror(errno));
+            close(fd);
+            fd = -1;
+        }
+        if (result != 0 || vers != BINDER_CURRENT_PROTOCOL_VERSION) {
+            ALOGE(&amp;quot;Binder driver protocol does not match user space protocol!&amp;quot;);
+            close(fd);
+            fd = -1;
+        }
+        size_t maxThreads = 15;
+        result = ioctl(fd, BINDER_SET_MAX_THREADS, &amp;amp;maxThreads);
+        if (result == -1) {
+            ALOGE(&amp;quot;Binder ioctl to set max threads failed: %s&amp;quot;, strerror(errno));
+        }
+    } else {
+        ALOGW(&amp;quot;Opening &amp;#39;/dev/binder&amp;#39; failed: %s\n&amp;quot;, strerror(errno));
+    }
+    return fd;
+}&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;i
+1. 打开/dev/binder设备，这样的话就相当于和内核binder机制有了交互的通道
+2. 映射fd到内存，设备的fd传进去后，估计这块内存是和binder设备共享的&lt;/p&gt;
+
+&lt;h2&gt;defaultServiceManager分析&lt;/h2&gt;
+
+&lt;p&gt;defaultServiceManager位置在framework\base\libs\binder\IServiceManager.cpp中&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;sp&amp;lt;IServiceManager&amp;gt; defaultServiceManager()
+{
+    if (gDefaultServiceManager != NULL) return gDefaultServiceManager;
+    
+    {
+        AutoMutex _l(gDefaultServiceManagerLock);
+        if (gDefaultServiceManager == NULL) {
+            //真正的gDefaultServiceManager是在这里创建的喔
+            gDefaultServiceManager = interface_cast&amp;lt;IServiceManager&amp;gt;(
+                ProcessState::self()-&amp;gt;getContextObject(NULL));
+        }
+    }
+    
+    return gDefaultServiceManager;
+}&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;分析代码就可以理解出来，其实调用是这样的&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;gDefaultServiceManager = interface_cast&amp;lt;IServiceManager&amp;gt;(new BpBinder(0));&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;interface_cast函数
+\frameworks\native\include\binder\IInterface.h：&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;template&amp;lt;typename INTERFACE&amp;gt;
+inline sp&amp;lt;INTERFACE&amp;gt; interface_cast(const sp&amp;lt;IBinder&amp;gt;&amp;amp; obj)
+{
+    return INTERFACE::asInterface(obj);
+}&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;结合前面就是：&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;inline sp&amp;lt;IServiceManager&amp;gt; interface_cast(const sp&amp;lt;IBinder&amp;gt;&amp;amp; obj)
+{
+    return IServiceManager::asInterface(obj);
+}&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;所以需要到IServiceManager里面去看看是如何实现的:  &lt;br/&gt;
+\frameworks\native\include\binder\IServiceManager.h：&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;class IServiceManager : public IInterface
+{
+public:
+    DECLARE_META_INTERFACE(ServiceManager);
+    /**
+     * Retrieve an existing service, blocking for a few seconds
+     * if it doesn&amp;#39;t yet exist.
+     */
+    virtual sp&amp;lt;IBinder&amp;gt;         getService( const String16&amp;amp; name) const = 0;
+
+    /**
+     * Retrieve an existing service, non-blocking.
+     */
+    virtual sp&amp;lt;IBinder&amp;gt;         checkService( const String16&amp;amp; name) const = 0;
+
+    /**
+     * Register a service.
+     */
+    virtual status_t            addService( const String16&amp;amp; name,
+                                            const sp&amp;lt;IBinder&amp;gt;&amp;amp; service,
+                                            bool allowIsolated = false) = 0;
+
+    /**
+     * Return list of all existing services.
+     */
+    virtual Vector&amp;lt;String16&amp;gt;    listServices() = 0;
+
+    enum {
+        GET_SERVICE_TRANSACTION = IBinder::FIRST_CALL_TRANSACTION,
+        CHECK_SERVICE_TRANSACTION,
+        ADD_SERVICE_TRANSACTION,
+        LIST_SERVICES_TRANSACTION,
+    };
+};
+
+
+//DECLARE_META_INTERFACE 声明: IInterface.h
+
+#define DECLARE_META_INTERFACE(INTERFACE)                               \
+    static const android::String16 descriptor;                          \
+    static android::sp&amp;lt;I##INTERFACE&amp;gt; asInterface(                       \
+            const android::sp&amp;lt;android::IBinder&amp;gt;&amp;amp; obj);                  \
+    virtual const android::String16&amp;amp; getInterfaceDescriptor() const;    \
+    I##INTERFACE();                                                     \
+    virtual ~I##INTERFACE();                                            \&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;替换成IServiceManager：&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;//实现时传入：android.os.IServiceManager
+static const android::String16 descriptor; 
+static android::sp&amp;lt;IServiceManager&amp;gt; asInterface( 
+const android::sp&amp;lt;android::IBinder&amp;gt;&amp;amp; obj); 
+virtual const android::String16&amp;amp; getInterfaceDescriptor() const; 
+//构造析构函数
+IServiceManager(); 
+virtual ~IServiceManager();&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;实现\frameworks\native\include\binder\IServiceManager.cpp：&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;IMPLEMENT_META_INTERFACE(ServiceManager, &amp;quot;android.os.IServiceManager&amp;quot;);&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;IMPLEMENT_META_INTERFACE实现：IInterface.h&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;#define IMPLEMENT_META_INTERFACE(INTERFACE, NAME)                       \
+    const android::String16 I##INTERFACE::descriptor(NAME);             \
+    const android::String16&amp;amp;                                            \
+            I##INTERFACE::getInterfaceDescriptor() const {              \
+        return I##INTERFACE::descriptor;                                \
+    }                                                                   \
+    android::sp&amp;lt;I##INTERFACE&amp;gt; I##INTERFACE::asInterface(                \
+            const android::sp&amp;lt;android::IBinder&amp;gt;&amp;amp; obj)                   \
+    {                                                                   \
+        android::sp&amp;lt;I##INTERFACE&amp;gt; intr;                                 \
+        if (obj != NULL) {                                              \
+            intr = static_cast&amp;lt;I##INTERFACE*&amp;gt;(                          \
+                obj-&amp;gt;queryLocalInterface(                               \
+                        I##INTERFACE::descriptor).get());               \
+            if (intr == NULL) {                                         \
+                intr = new Bp##INTERFACE(obj);                          \
+            }                                                           \
+        }                                                               \
+        return intr;                                                    \
+    }                                                                   \
+    I##INTERFACE::I##INTERFACE() { }                                    \
+    I##INTERFACE::~I##INTERFACE() { }                                   \&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;替换成IServiceManager:&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;android::sp&amp;lt;IServiceManager&amp;gt; IServiceManager::asInterface(                
+            const android::sp&amp;lt;android::IBinder&amp;gt;&amp;amp; obj)                   
+{   
+        //obj BpBinder实例                                                                
+        android::sp&amp;lt;IServiceManager&amp;gt; intr;                                
+        if (obj != NULL) {
+            //返回NULL                                        
+            intr = static_cast&amp;lt;IServiceManager*&amp;gt;(                          
+                obj-&amp;gt;queryLocalInterface(                               
+                        IServiceManager::descriptor).get());              
+            if (intr == NULL) {                                         
+                intr = new BpServiceManager(obj);                          
+            }                                                           
+        }                                                               
+        return intr;                                                    
+}&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;可以看出这个gDefaultServiceManager的实例其实是&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;BpServiceManager：new BpServiceManager（new BpBinder（0））；&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;h2&gt;BpServiceManager 和BpInterface&lt;/h2&gt;
+
+&lt;p&gt;\frameworks\native\libs\binder\ IServiceManager.cpp：BpServiceManager&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;class BpServiceManager : public BpInterface&amp;lt;IServiceManager&amp;gt;
+{
+public:
+      //impl就是 new BpBinder（0）
+    BpServiceManager(const sp&amp;lt;IBinder&amp;gt;&amp;amp; impl)
+        : BpInterface&amp;lt;IServiceManager&amp;gt;(impl)
+    {
+    }
+
+    virtual sp&amp;lt;IBinder&amp;gt; checkService(const String16&amp;amp; name) const
+    {
+        ……
+        remote()-&amp;gt;transact(CHECK_SERVICE_TRANSACTION, data, &amp;amp;reply);
+    }
+
+    virtual status_t addService(const String16&amp;amp; name, const sp&amp;lt;IBinder&amp;gt;&amp;amp; service,
+            bool allowIsolated)
+    {
+        ……
+        remote()-&amp;gt;transact(ADD_SERVICE_TRANSACTION, data, &amp;amp;reply);
+    }
+}&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;\frameworks\native\include\binder\ IInterface.h：模板类BpInterface&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;template&amp;lt;typename INTERFACE&amp;gt;
+class BpInterface : public INTERFACE, public BpRefBase
+{
+public:
+                                BpInterface(const sp&amp;lt;IBinder&amp;gt;&amp;amp; remote);
+
+protected:
+    virtual IBinder*            onAsBinder();
+};&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;BpInterface的构造函数是空的就不用看了，直接看BpRefBase：&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;BpRefBase::BpRefBase(const sp&amp;lt;IBinder&amp;gt;&amp;amp; o)
+    : mRemote(o.get()), mRefs(NULL), mState(0)
+{
+    extendObjectLifetime(OBJECT_LIFETIME_WEAK);
+    // IBinder mRemote 指向 o.get() ：new BpBinder（0）
+    if (mRemote) {
+        mRemote-&amp;gt;incStrong(this);           // Removed on first IncStrong().
+        mRefs = mRemote-&amp;gt;createWeak(this);  // Held for our entire lifetime.
+    }
+}&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;gDefaultServiceManager = interface_cast&lt;IServiceManager&gt;(BpBinder(0))；
+实际为：
+　　gDefaultServiceManager = new BpServiceManager（new BpBinder（0））；
+Bn代表Binder Native   Bp代表Binder Proxy
+BpServiceManager代理的BpBinder实例 BpBinder代理的handle（0）&lt;/p&gt;
+
+&lt;p&gt;在Media Process 的main函数中通过：&lt;/p&gt;
+
+&lt;p&gt;sp&lt;IServiceManager&gt; sm = defaultServiceManager();
+　　我们得到了sm：是BpServiceManager对象&lt;/p&gt;
+
+&lt;p&gt;在回顾MediaPlayerService做了哪些:&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;int main(int argc, char** argv)
+{
+    sp&amp;lt;ProcessState&amp;gt; proc(ProcessState::self());
+    sp&amp;lt;IServiceManager&amp;gt; sm = defaultServiceManager();
+    ALOGI(&amp;quot;ServiceManager: %p&amp;quot;, sm.get());
+    AudioFlinger::instantiate();
+    MediaPlayerService::instantiate();
+    CameraService::instantiate();
+    AudioPolicyService::instantiate();
+    ProcessState::self()-&amp;gt;startThreadPool();
+    IPCThreadState::self()-&amp;gt;joinThreadPool();
+}&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;MediaPlayerService初始化过程:&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;void MediaPlayerService::instantiate() {
+    defaultServiceManager()-&amp;gt;addService(
+            String16(&amp;quot;media.player&amp;quot;), new MediaPlayerService());
+}&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;看BpServiceManager的addService方法&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;virtual status_t addService(const String16&amp;amp; name, const sp&amp;lt;IBinder&amp;gt;&amp;amp; service,
+            bool allowIsolated)
+    {
+        Parcel data, reply;
+        // Write RPC headers 写入Interface名字 得到“android.os.IServiceManager”
+        data.writeInterfaceToken(IServiceManager::getInterfaceDescriptor());
+//写入Service名字 “media.player”
+        data.writeString16(name);
+//写入服务
+        data.writeStrongBinder(service);
+        data.writeInt32(allowIsolated ? 1 : 0);
+// remote()返回BpBinder对象
+        status_t err = remote()-&amp;gt;transact(ADD_SERVICE_TRANSACTION, data, &amp;amp;reply);
+        return err == NO_ERROR ? reply.readExceptionCode() : err;
+    }&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;调用的是BpBinder的transact:&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;status_t BpBinder::transact(
+    uint32_t code, const Parcel&amp;amp; data, Parcel* reply, uint32_t flags)
+{
+    // Once a binder has died, it will never come back to life.
+    if (mAlive) {
+        status_t status = IPCThreadState::self()-&amp;gt;transact(
+            mHandle, code, data, reply, flags);
+        if (status == DEAD_OBJECT) mAlive = 0;
+        return status;
+    }
+
+    return DEAD_OBJECT;
+}&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;h2&gt;IPCThreadState中写入数据到Binder设备过程&lt;/h2&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;status_t IPCThreadState::transact(int32_t handle,
+                                  uint32_t code, const Parcel&amp;amp; data,
+                                  Parcel* reply, uint32_t flags)
+{
+    status_t err = data.errorCheck();
+
+    flags |= TF_ACCEPT_FDS;
+
+    ......    
+      
+    if (err != NO_ERROR) {
+        if (reply) reply-&amp;gt;setError(err);
+        return (mLastError = err);
+    }
+    
+    if ((flags &amp;amp; TF_ONE_WAY) == 0) {
+        #if 0
+        if (code == 4) { // relayout
+            ALOGI(&amp;quot;&amp;gt;&amp;gt;&amp;gt;&amp;gt;&amp;gt;&amp;gt; CALLING transaction 4&amp;quot;);
+        } else {
+            ALOGI(&amp;quot;&amp;gt;&amp;gt;&amp;gt;&amp;gt;&amp;gt;&amp;gt; CALLING transaction %d&amp;quot;, code);
+        }
+        #endif
+        if (reply) {
+            err = waitForResponse(reply);
+        } else {
+            Parcel fakeReply;
+            err = waitForResponse(&amp;amp;fakeReply);
+        }
+        #if 0
+        if (code == 4) { // relayout
+            ALOGI(&amp;quot;&amp;lt;&amp;lt;&amp;lt;&amp;lt;&amp;lt;&amp;lt; RETURNING transaction 4&amp;quot;);
+        } else {
+            ALOGI(&amp;quot;&amp;lt;&amp;lt;&amp;lt;&amp;lt;&amp;lt;&amp;lt; RETURNING transaction %d&amp;quot;, code);
+        }
+        #endif
+       } else {
+        err = waitForResponse(NULL, NULL);
+    }
+    
+    return err;
+}
+
+status_t IPCThreadState::waitForResponse(Parcel *reply, status_t *acquireResult)
+{
+    while (1) {
+        //将数据写入到Binder设备中
+        talkWithDriver();
+        ……
+    }
+    return err;
+}
+status_t IPCThreadState::talkWithDriver(bool doReceive)
+{
+    //将数据封装成binder_write_read结构
+    binder_write_read bwr;
+
+    do {
+        //将数据写入到所打开的Binder设备中
+        ioctl(mProcess-&amp;gt;mDriverFD, BINDER_WRITE_READ, &amp;amp;bwr)
+        ……
+    
+    } while (err == -EINTR);
+    return NO_ERROR;
+}&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;将MediaPlayerService加入到ServiceManager中，
+这里就通过BpServiceManager的AddService将数据写入到Binder设备传递给ServiceManager。&lt;/p&gt;
+
+&lt;h2&gt;Media Process消息循环&lt;/h2&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;int main(int argc, char** argv)
+{
+    //启动进程的线程池    
+    ProcessState::self()-&amp;gt;startThreadPool();     //走到了这里
+
+    //执行线程消息循环
+    IPCThreadState::self()-&amp;gt;joinThreadPool();
+}&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;ProcessState::self()-&gt;startThreadPool(); -----&gt; 创建工作者线程:
+startThreadPool：\frameworks\native\libs\binder\ ProcessState.cpp：&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;void ProcessState::spawnPooledThread(bool isMain)
+{
+    if (mThreadPoolStarted) {
+        int32_t s = android_atomic_add(1, &amp;amp;mThreadPoolSeq);
+        char buf[16];
+        snprintf(buf, sizeof(buf), &amp;quot;Binder_%X&amp;quot;, s);
+        ALOGV(&amp;quot;Spawning new pooled thread, name=%s\n&amp;quot;, buf);
+//创建PoolThread对象 并run ，非线程
+        sp&amp;lt;Thread&amp;gt; t = new PoolThread(isMain);
+        t-&amp;gt;run(buf);
+    }
+}&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;PoolThread继承Thread
+执行Thread的run函数
+位于utils/Threads.cpp&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;status_t Thread::run(const char* name, int32_t priority, size_t stack)
+{
+    //创建线程mThread _threadLoop
+    bool res;
+    res = createThreadEtc(_threadLoop,
+    this, name, priority, stack, &amp;amp;mThread);
+
+    return NO_ERROR;
+}&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;现在有两个线程：主线程和mThread线程
+mThread线程执行：_threadLoop&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;int Thread::_threadLoop(void* user)
+{
+    Thread* const self = static_cast&amp;lt;Thread*&amp;gt;(user);
+    do {
+        //调用子类的threadLoop
+        result = self-&amp;gt;threadLoop();
+        ……
+    } while(strong != 0);
+    return 0;
+}
+
+class PoolThread : public Thread
+{
+protected:
+    virtual bool threadLoop()
+    {
+        IPCThreadState::self()-&amp;gt;joinThreadPool(mIsMain);
+        return false;
+    }
+};&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;h2&gt;进程间通信消息循环过程&lt;/h2&gt;
+
+&lt;p&gt;消息循环:&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;void IPCThreadState::joinThreadPool(bool isMain)
+{
+    mOut.writeInt32(isMain ? BC_ENTER_LOOPER : BC_REGISTER_LOOPER);
+    status_t result;    
+    //消息循环
+    do {
+        int32_t cmd;
+        //从binder设备中读取命令
+        result = talkWithDriver();
+        if (result &amp;gt;= NO_ERROR) {
+            cmd = mIn.readInt32();
+            //执行命令
+            result = executeCommand(cmd);
+        }
+           ……
+    } while (result != -ECONNREFUSED &amp;amp;&amp;amp; result != -EBADF);
+    
+    mOut.writeInt32(BC_EXIT_LOOPER);
+    talkWithDriver(false);
+}&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;命令执行：&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;status_t IPCThreadState::executeCommand(int32_t cmd)
+{
+    BBinder* obj;
+    RefBase::weakref_type* refs;
+    switch (cmd) {
+    case BR_DECREFS:
+        break;
+    case BR_ATTEMPT_ACQUIRE:
+        break;
+case BR_TRANSACTION:
+　　binder_transaction_data tr;
+    result = mIn.read(&amp;amp;tr, sizeof(tr));
+      if (tr.target.ptr) {
+        //将目标对象转化成BBinder
+        sp&amp;lt;BBinder&amp;gt; b((BBinder*)tr.cookie);
+        //调用BBinder的transact 函数
+       const status_t error = b-&amp;gt;transact(tr.code, buffer, &amp;amp;reply, tr.flags);
+      }
+        break;
+    ……
+    default:
+    }
+    return result;
+}&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;binder_transaction_data.cookie：target object cookie目标对象，这个target object是指那个呢？&lt;/p&gt;
+
+&lt;p&gt;在Media Process里面有几个Service：AudioFlinger、MediaPlayerService、CameraService等。&lt;/p&gt;
+
+&lt;p&gt;这个目标是这其中Service中的一个，假设目标对象为为MediaPlayerService，那为何要转化成BBinder呢？&lt;/p&gt;
+
+&lt;h2&gt;Service对命令的处理&lt;/h2&gt;
+
+&lt;p&gt;线程从binder接收到消息命令，将命令传递给Service处理。将目标对象转化成BBinder，然后调度此命令；
+命令从远端传递到本地端进行处理，每个Service都对应BnXXX对象来处理远端BpXXX传来的命令。
+　　sp&lt;BBinder&gt; b((BBinder*)tr.cookie);
+　　const status_t error = b-&gt;transact(tr.code, buffer, &amp;amp;reply, tr.flags);
+　　这里b代表某个Service：假设为MediaPlayerService；弄清楚执行过程，要弄清楚类继承关系。&lt;/p&gt;
+
+&lt;p&gt;本地端BnMediaPlayerService消息处理过程：真正的对象是MediaPlayerService实例。
+从BBinder -&gt;transact开始传递：&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;status_t BBinder::transact(
+    uint32_t code, const Parcel&amp;amp; data, Parcel* reply, uint32_t flags)
+{
+    data.setDataPosition(0);
+
+    status_t err = NO_ERROR;
+    switch (code) {
+        case PING_TRANSACTION:
+            reply-&amp;gt;writeInt32(pingBinder());
+            break;
+        default:
+        //onTransact是个virtual函数 派生类BnMediaPlayerService重写
+            err = onTransact(code, data, reply, flags);
+            break;
+    }
+
+    if (reply != NULL) {
+        reply-&amp;gt;setDataPosition(0);
+    }
+
+    return err;
+}&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;调用的是onTransact(code, data, reply, flags); BBinder的onTransact是虚函数，被子类BnMediaPlayerService复写:&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;这里调用的ProcessState的getContextObject;&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;sp&amp;lt;IBinder&amp;gt; ProcessState::getContextObject(const sp&amp;lt;IBinder&amp;gt;&amp;amp; caller)
+{
+    return getStrongProxyForHandle(0);
+}
+
+    sp&amp;lt;IBinder&amp;gt; ProcessState::getStrongProxyForHandle(int32_t handle)
+{
+    sp&amp;lt;IBinder&amp;gt; result;
+
+    AutoMutex _l(mLock);
+
+    handle_entry* e = lookupHandleLocked(handle);
+
+    if (e != NULL) {
+        // We need to create a new BpBinder if there isn&amp;#39;t currently one, OR we
+        // are unable to acquire a weak reference on this current one.  See comment
+        // in getWeakProxyForHandle() for more info about this.
+        IBinder* b = e-&amp;gt;binder;
+        if (b == NULL || !e-&amp;gt;refs-&amp;gt;attemptIncWeak(this)) {
+            b = new BpBinder(handle); 
+            e-&amp;gt;binder = b;
+            if (b) e-&amp;gt;refs = b-&amp;gt;getWeakRefs();
+            result = b;
+        } else {
+            // This little bit of nastyness is to allow us to add a primary
+            // reference to the remote proxy when this team doesn&amp;#39;t have one
+            // but another team is sending the handle to us.
+            result.force_set(b);
+            e-&amp;gt;refs-&amp;gt;decWeak(this);
+        }
+    }
+
+    return result;
+}&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;在看看BpBinder：&lt;/p&gt;
+
+&lt;h2&gt;BpBinder&lt;/h2&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;BpBinder::BpBinder(int32_t handle)
+    : mHandle(handle)
+    , mAlive(1)
+    , mObitsSent(0)
+    , mObituaries(NULL)
+{
+    ALOGV(&amp;quot;Creating BpBinder %p handle %d\n&amp;quot;, this, mHandle);
+
+    extendObjectLifetime(OBJECT_LIFETIME_WEAK);
+    IPCThreadState::self()-&amp;gt;incWeakHandle(handle);//FT，竟然到IPCThreadState::self()
+}&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;这里一块说说吧，IPCThreadState::self估计怎么着又是一个singleton吧？&lt;/p&gt;
+
+&lt;p&gt;//该文件位置在framework\base\libs\binder\IPCThreadState.cpp&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;IPCThreadState* IPCThreadState::self()
+{
+    if (gHaveTLS) {
+restart:
+        const pthread_key_t k = gTLS;
+//TLS是Thread Local Storage的意思，不懂得自己去google下它的作用吧。这里只需要
+
+//知道这种空间每个线程有一个，而且线程间不共享这些空间，好处是？我就不用去搞什么
+
+//同步了。在这个线程，我就用这个线程的东西，反正别的线程获取不到其他线程TLS中的数据。===》这句话有漏洞，钻牛角尖的明白大概意思就可以了。
+
+//从线程本地存储空间中获得保存在其中的IPCThreadState对象
+
+//这段代码写法很晦涩，看见没，只有pthread_getspecific,那么肯定有地方调用
+
+// pthread_setspecific
+        IPCThreadState* st = (IPCThreadState*)pthread_getspecific(k);
+        if (st) return st;
+        return new IPCThreadState;
+    }
+    
+    if (gShutdown) return NULL;
+    
+    pthread_mutex_lock(&amp;amp;gTLSMutex);
+    if (!gHaveTLS) {
+        if (pthread_key_create(&amp;amp;gTLS, threadDestructor) != 0) {
+            pthread_mutex_unlock(&amp;amp;gTLSMutex);
+            return NULL;
+        }
+        gHaveTLS = true;
+    }
+    pthread_mutex_unlock(&amp;amp;gTLSMutex);
+    goto restart;
+}&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;构造函数:&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+
+
+&lt;ul&gt;
+    &lt;li&gt;jekyll打开本地服务jekyll serve&lt;/li&gt;
+    &lt;li&gt;关于jekyll的 Address already in use - bind(2):&lt;/br&gt;
+        先采用lsof -wni tcp:4000 或者使用 ps aux |grep &quot;jek&quot;&lt;/br&gt;
+        再采用kill -9 PID命令
+        &lt;/li&gt;
+    
+&lt;/ul&gt;
+
+
+&lt;p&gt;&lt;img src=&quot;/images/android/androidL_1.png&quot; title=&quot;Optional title&quot; alt=&quot;Alt text&quot; /&gt;&lt;/p&gt;
+
+&lt;ul&gt;
+&lt;li&gt;​http://developer.android.com/preview/api-overview.html&lt;/li&gt;
+&lt;li&gt;​http://developer.android.com/preview/api-overview.html&lt;/li&gt;
+&lt;li&gt;​http://developer.android.com/preview/api-overview.html&lt;/li&gt;
+&lt;li&gt;​http://developer.android.com/preview/api-overview.html&lt;/li&gt;
+&lt;/ul&gt;
+
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;h3&gt;结论&lt;/h3&gt;
+
+&lt;p&gt;1.androd的底层实现是通过socket和共享内存的方式，这种写法也可以采用在我们自己的多进程通信上使用，值得学习
+2.底层所有的event其实都是一样的，都是inputEvent，上层会根据source再分成keyEvent,MotionEvent等，用于不同的用处
+3.所有View的起点其实就是dispatchPointerEvent()，这个是分发事件的起点.&lt;/p&gt;
+
+&lt;h3&gt;参考blog&lt;/h3&gt;
+
+&lt;p&gt;http://www.cnblogs.com/-OYK/archive/2011/07/31/2122981.html
+http://www.cnblogs.com/zhangxinyan/p/3487905.html
+http://blog.csdn.net/yangwen123/article/details/9142521
+http://blog.csdn.net/maxleng/article/details/5490770
+http://www.cnblogs.com/innost/archive/2011/01/09/1931456.html
+http://www.cnblogs.com/bastard/archive/2012/11/13/2766611.html
+http://blog.csdn.net/a220315410/article/details/17761681&lt;/p&gt;
+</content>
+   </entry>
    
    <entry>
      <title>关于android的Activity是如何触摸事件框架简析(二)</title>
@@ -1608,190 +4150,6 @@ disassemble/disas //查看汇编代码
 
 
 
-</content>
-   </entry>
-   
-   <entry>
-     <title>关于java String的匹配问题</title>
-     <link href="http://beiyuu.com/sqlite-efficiency"/>
-     <updated>2014-11-15T00:00:00+08:00</updated>
-     <id>http://beiyuu.com/sqlite-efficiency</id>
-     <content type="html">&lt;h3&gt;遇到的问题&lt;/h3&gt;
-
-&lt;p&gt;这次在调程序性能的时候发现有多处的String匹配，加上各种云端开关，想到之前字符串匹配用到的KMP算法，所以打算采用KMP算法：&lt;/p&gt;
-
-&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;public class KMP {
-    public int kmpMatch(String s, String p){
-        int[] next = new int[s.length()];
-        int i,j;
-        i=0;
-        j=0;
-        getNext(p,next);
-        while(i&amp;lt;s.length()){
-            if(j==-1||s.charAt(i)==p.charAt(j)){
-                i++;
-                j++;
-            }else{
-                j=next[j]; // eliminate Trace Back
-            }
-            if(j==p.length()){
-                return i-p.length();
-            }
-        }
-        return -1;
-    }
-
-    private void getNext(String p, int[] next){
-        int j,k;
-        next[0]=-1;
-        j=0;
-        k=-1;
-        while(j&amp;lt;p.length()-1){
-            if(k==-1 || p.charAt(j)==p.charAt(k)){
-                j++;
-                k++;
-                next[j]=k;
-            }else{
-                k=next[k];
-            }
-        }
-    }
-}&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
-
-
-&lt;p&gt;但是发现，性能竟然降下去了。&lt;/p&gt;
-
-&lt;h3&gt;关于java的字符串匹配的问题&lt;/h3&gt;
-
-&lt;pre&gt;&lt;code&gt;我们之前的代码采用的jdk的**contains api**
-源码如下：
-![Alt text]( /images/android/2014_java_indexof.png &quot;Optional title&quot;)
-
-发现牛逼的jre源码竟然采用了最朴实的算法,我们知道KMP的时间复杂度是非常好的为o(n)
-&lt;/code&gt;&lt;/pre&gt;
-
-&lt;p&gt;为何源码采用朴素算法,不采用KMP？在stackOverFlow上找到了一些蛛丝马迹:
-    KMP算法具有更好的性能，但实际上需要一点点的前面计算（产生的偏移量表）。IT也需要一个初始的内存分配，这也可能影响性能。
-    而且使用String的&lt;strong&gt;charAt &lt;/strong&gt;会对性能的造成损耗，这个需要注意！！！&lt;/p&gt;
-
-&lt;p&gt;此外，测试了了String的几个查找subString的API：&lt;/p&gt;
-
-&lt;ol&gt;
-&lt;li&gt;string.contains()&lt;/li&gt;
-&lt;li&gt;string.indexOf()&lt;/li&gt;
-&lt;li&gt;regular expression. it is something like string.matches(&quot;ja&quot;))&lt;/li&gt;
-&lt;/ol&gt;
-
-
-&lt;p&gt;性能 string.indexOf() &gt; string.contains() &gt; string.matches(&quot;ja&quot;))&lt;/p&gt;
-</content>
-   </entry>
-   
-   <entry>
-     <title>关于java String的匹配问题</title>
-     <link href="http://beiyuu.com/java-String"/>
-     <updated>2014-11-14T00:00:00+08:00</updated>
-     <id>http://beiyuu.com/java-String</id>
-     <content type="html">&lt;h3&gt;遇到的问题&lt;/h3&gt;
-
-&lt;p&gt;这次在调程序性能的时候发现有多处的String匹配，加上各种云端开关，想到之前字符串匹配用到的KMP算法，所以打算采用KMP算法：&lt;/p&gt;
-
-&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;public class KMP {
-    public int kmpMatch(String s, String p){
-        int[] next = new int[s.length()];
-        int i,j;
-        i=0;
-        j=0;
-        getNext(p,next);
-        while(i&amp;lt;s.length()){
-            if(j==-1||s.charAt(i)==p.charAt(j)){
-                i++;
-                j++;
-            }else{
-                j=next[j]; // eliminate Trace Back
-            }
-            if(j==p.length()){
-                return i-p.length();
-            }
-        }
-        return -1;
-    }
-
-    private void getNext(String p, int[] next){
-        int j,k;
-        next[0]=-1;
-        j=0;
-        k=-1;
-        while(j&amp;lt;p.length()-1){
-            if(k==-1 || p.charAt(j)==p.charAt(k)){
-                j++;
-                k++;
-                next[j]=k;
-            }else{
-                k=next[k];
-            }
-        }
-    }
-}&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
-
-
-&lt;p&gt;但是发现，性能竟然降下去了。&lt;/p&gt;
-
-&lt;h3&gt;关于java的字符串匹配的问题&lt;/h3&gt;
-
-&lt;pre&gt;&lt;code&gt;我们之前的代码采用的jdk的**contains api**
-源码如下：
-![Alt text]( /images/android/2014_java_indexof.png &quot;Optional title&quot;)
-
-发现牛逼的jre源码竟然采用了最朴实的算法,我们知道KMP的时间复杂度是非常好的为o(n)
-&lt;/code&gt;&lt;/pre&gt;
-
-&lt;p&gt;为何源码采用朴素算法,不采用KMP？在stackOverFlow上找到了一些蛛丝马迹:
-    KMP算法具有更好的性能，但实际上需要一点点的前面计算（产生的偏移量表）。IT也需要一个初始的内存分配，这也可能影响性能。
-    而且使用String的&lt;strong&gt;charAt &lt;/strong&gt;会对性能的造成损耗，这个需要注意！！！&lt;/p&gt;
-
-&lt;p&gt;此外，测试了了String的几个查找subString的API：&lt;/p&gt;
-
-&lt;ol&gt;
-&lt;li&gt;string.contains()&lt;/li&gt;
-&lt;li&gt;string.indexOf()&lt;/li&gt;
-&lt;li&gt;regular expression. it is something like string.matches(&quot;ja&quot;))&lt;/li&gt;
-&lt;/ol&gt;
-
-
-&lt;p&gt;性能 string.indexOf() &gt; string.contains() &gt; string.matches(&quot;ja&quot;))&lt;/p&gt;
-</content>
-   </entry>
-   
-   <entry>
-     <title>ant打包策略</title>
-     <link href="http://beiyuu.com/andoird-ant"/>
-     <updated>2014-10-17T00:00:00+08:00</updated>
-     <id>http://beiyuu.com/andoird-ant</id>
-     <content type="html">&lt;h3&gt;操作流程&lt;/h3&gt;
-
-&lt;p&gt;1.准备必要工具。
-    - ​python2.X(注意，不能用3.X版本)
-    - apache-ant-1.8.4(注意，一定要此版本)
-    - android sdk
-2.把python路径(如：c:\Python25)，ant路径(如d:\apache-ant-1.8.4\bin),sdk工具路径(如d:\android-sdk\build-tools\18.1.1)加入PATH环境变量。
-3.在CleanMaster工程所在路径，用python调用build/changebuildXXX/before.py脚本修改工程环境。(如果你想打国内版的包，就是changebuild0，如果想打国际版的包，就是changebuil1) 参看：如何构造一个指定包版本的工程代码环境
-4.修改local.properties中配置的SDK路径。
-5.修改proguard.cfg中-libraryjars开头的三行配置路径。&lt;/p&gt;
-
-&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-java&quot; data-lang=&quot;java&quot;&gt;-libraryjars &amp;#39;D:\Program Files\Java\jre6\lib\rt.jar&amp;#39;
--libraryjars &amp;#39;D:\install\Android\android-sdk\platforms\android-17\android.jar&amp;#39;
--libraryjars &amp;#39;D:\install\Android\android-sdk\platforms\android-17\data\layoutlib.jar&amp;#39;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
-
-
-&lt;p&gt;6.修改custom_rules_commons.xml中配置的python路径。
-7.在CleanMaster工程所在路径，执行ant clean。
-8.在CleanMaster工程所在路径，执行ant cmrelease。构建成功后，安装包在bin/channel路径下。&lt;/p&gt;
-
-&lt;h3&gt;FAQ&lt;/h3&gt;
-
-&lt;p&gt;1.如果出现下述报错，就是lint检查失败了，没有生成结果文件。
-&lt;img src=&quot;/images/android/android_ant.jpg&quot; title=&quot;Optional title&quot; alt=&quot;Alt text&quot; /&gt;&lt;/p&gt;
 </content>
    </entry>
    

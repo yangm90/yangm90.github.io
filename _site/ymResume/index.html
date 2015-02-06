@@ -5,7 +5,7 @@
     * Author:        ym 
     -->
     <meta charset="utf-8" />
-    <title>Android图形的知识 | Yangming.com</title>
+    <title>简历 | Yangming.com</title>
     <meta name="author" content="ym" />
     <meta name="renderer" content="webkit">
     <meta name="description" content="ym's Blog" />
@@ -44,82 +44,67 @@
 
 <div id="content">
     <div class="entry">
-        <h1 class="entry-title"><a href="/AndroidCanvas" title="Android图形的知识">Android图形的知识</a></h1>
-        <p class="entry-date">2014-12-13</p>
-        <h3>关于自定义控件的基础知识</h3>
+        <h1 class="entry-title"><a href="/ymResume" title="简历">简历</a></h1>
+        <p class="entry-date">2015-01-28</p>
+        <hr />
 
-<p>自定义控件的一个重点就是实现就是去重写他的绘制过程,也就是View.onDraw(Canvas canvas)方法。这个里面就是绘制图形的过程了，比如说一个Button，绘制按钮和按钮上的文字都是在它自己的onDraw方法中完成的。如果你想给ImageView加个蒙版，可以继承ImageView并且重写他的onDraw方法，调用完父类的onDraw之后，再自己Canvas来画一个黑色的半透明矩形，这样就可以对现有的控件进行加工了。
-Canvas是什么呢？是画布，你绘制东西的时候就是绘到了这个画布上，给用户显示的东西也是这个画布上的东西。通常来说，当你调用到onDraw方法的时候对应的View已经确定了他的宽度和高度(关于View的measure和layout过程以后再详述)。那么在Canvas上，你画的范围就只有View对应的大小了。我们用代码来描述下</p>
-
-<div class="highlight"><pre><code class="language-java" data-lang="java">protected void onDraw(Canvas canvas) {
-    super.onDraw(canvas);
-    int verticalCenter    =  getHeight() / 2;
-    int horizontalCenter  =  getWidth() / 2;
-    int circleRadius      = 200;
-    Paint paint = new Paint();
-    paint.setAntiAlias(false);
-    paint.setColor(Color.RED);
-    canvas.drawCircle( horizontalCenter, verticalCenter-250, circleRadius, paint);
-
-    paint.setAntiAlias(true);
-    paint.setStyle(Paint.Style.STROKE);
-    paint.setStrokeWidth(20);
-    canvas.drawCircle( horizontalCenter, verticalCenter+250, circleRadius, paint);
-}</code></pre></div>
-
-
-<p>这个View的大小可以通过getHeight()和getWidth()来获得。我们准备画两个圆圈，半径都是200。我们主要用到的方法是drawCircle()方法，参数的意义分别是圆心的x，y坐标，半径和所使用的画笔Paint。</p>
-
-<p>Paint是什么？是画笔的意思，Canvas是画布，Paint是画笔，画笔控制了所画东西的颜色大小字体等等。在画第一个圆的时候，我们通过Paint.setAntiAlias方法设置抗锯齿属性为false，并设置颜色为红色。</p>
-
-<p>在画第二个圆的时候，我们打开了抗锯齿。将Paint的风格设为STROKE，也就是只画边框。然后设置边框宽度为20.</p>
-
-<h3>关于Canvas所涉及的到的类</h3>
-
-<p>android.graphics.* 包里面主要由以下一些类：</p>
+<h1>个人信息</h1>
 
 <ul>
-    <li>Canvas/li>
-    <li>Bitmap及其相关的类</li>
-    <li>Xfermode及其子类</li>
-    <li>Paint及其相关类和内部类</li>
-    <li>Shader及其子类</li>
-    <li>Rect，Color，Point，Path等基础类</li>
+<li>杨明/男/1990</li>
+<li>本科/武汉科技大学网络工程系</li>
+<li>工作年限：2年</li>
+<li>技术博客: http://yangm90.github.io</li>
+<li>期望职位：android工程师，android研发</li>
+<li>期望城市：北上广</li>
+<li>期望薪资：税前17k~20K</li>
+<li>QQ：89513196</li>
 </ul>
 
 
-<h3>Canvas.drawText绘制文字为什么会偏上？</h3>
+<hr />
 
-<p>如果你经常使用Canvas的draw***方法去绘制一些图像图形，你会知道绘制的时候坐标是从Canvas左上角开始计算的，如果想要把一个图像放到某个位置，直接drawBitmap传递图片左上角的坐标就行了.</p>
+<h1>工作经历</h1>
 
-<p>那drawText就不一样了，如果你传递进去字符串，会发现文字的位置和你指定的不一样。</p>
+<h2>猎豹移动公司 （ 2012年7月 ~ 至今 ）</h2>
 
-<p>卧槽为啥。Android的文档也没有仔细说，打开源码一看，又跑到native代码里去执行了。经过我奋力地Google，终于把这个问题搞清楚了。</p>
+<h3>cleanMatser的游戏加速 （2013年7月 ~ 至今）</h3>
 
-<p><img src="/images/android/android_drawtext.jpeg" title="Optional title" alt="Alt text" /></p>
-
-<p>对于一段文字来说，如果你想把他画到Canvas上，首先你要确定这段文字的范围，即宽度和高度，那么怎么去取这一段的高度呢，如果你在网上搜，会有很多种答案，具体应该用哪一种呢？这要看你到底需要什么样的尺寸了。</p>
-
-<p>Paint.getTextBounds: 当你通过这个方法来获取尺寸的时候，你可以得到能够包裹文字的最小矩形，就是图中红色边框的那部分，你可以得到一个Rect对象，包含这个最小尺寸的几个值。坑其实就在这里：这里的Rect对象坐标并不是以左上角为准的，而是相对于左边中间靠下位置的一个点，就是图中的黄色五角星。而这里水平的Baseline指的是字符串对齐的一条线（真正的含义可以需要更深入了解字体渲染的知识了）。既然这样，r.top就是一个负值了，r.bottom会是一个小一点的正值，r.left和r.right在图中画的都很清楚。通过r.width()和r.height()来获取尺寸。</p>
-
-<p>那么文字的偏移就好说了，比如说你要把文字画在Canvas的左上角，坐标是(0,0)，但是当你通过：</p>
-
-<div class="highlight"><pre><code class="language-java" data-lang="java">canvas.drawText(“dangwen”,0,0,paint);</code></pre></div>
+<ul>
+<li>我参与了研究如何帮助用户顺畅的玩游戏，找出游戏卡顿的原因。通过对android源码分析以及对用户的使用场景分析，找出了对用户有很大作用的点，是游戏盒子功能的留存得到了20%的提升。</li>
+<li>优化游戏盒子的启动框架，将游戏盒子的启动速度提升至竞品中最快（现在目前启动速度为0.7s）。</li>
+</ul>
 
 
-<p>来画文字的时候，发现只有文字的下半部分画出来了，因为你传递进去的参数应该是以Baseline为标准的，正确的方法是：</p>
+<h3>金山手机助手（2012年7月 ~2013年7月）</h3>
 
-<div class="highlight"><pre><code class="language-java" data-lang="java">canvas.drawText(“dangwen”,-r.left,-r.top,paint);</code></pre></div>
+<p>这个项目中，主要参与几方面的事情：</p>
+
+<ul>
+<li>将手机助手的各个模块降低耦合，并实现模块组件化，做到代码的动态加载，为内容的动态发布提供技术支持。</li>
+<li>将手机助手的数据库采用内存级数据库，将数据库读写分离，提升了数据吞吐速度。</li>
+<li>完善并且提高手机助手下载成功率，将手机助手的下载成功率从45%提升至60%。</li>
+<li>熟悉rootService，对root的相关操作熟悉。</li>
+</ul>
 
 
-<p>Paint.getFontMetricsInt(): 当你通过这里方法来获取尺寸的时候，你获取的只是一个垂直方向上的尺寸，这里的ascent代表的是字体的上部，descent代表的是字体的下部，这里需要注意的是这和上面获得的Rect的top和bottom不太一样，他们比比ascent和descent距离稍微小一些，这些具体的高度可能和不同的字体和渲染方式有关系，这里就不深入了 #我是不懂#。</p>
+<h1>技能清单</h1>
 
-<p>然后如果把文字写入TextView（图中蓝色部分）并且设置TextView的高度和宽度设为wrap_content，那么TextView的高度就正好是FontMetricsInt.top – FontMetricsInt.bottom, 那宽度呢？ Paint.measureText()。</p>
+<p>以下均为我熟练使用的技能：</p>
 
-<div class="highlight"><pre><code class="language-java" data-lang="java"></code></pre></div>
+<ul>
+<li>语言：Java/Android</li>
+<li>数据库相关：SQLite</li>
+<li>版本管理、：Svn/Git</li>
+<li>开发工具：android stdio,intellij idea , eclipse</li>
+</ul>
 
 
+<hr />
 
+<h1>致谢</h1>
+
+<p>感谢您花时间阅读我的简历，期待能有机会和您共事。</p>
 
 
         <div id="disqus_container">

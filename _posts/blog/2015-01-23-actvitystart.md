@@ -11,13 +11,18 @@ category: blog
 1. Activity其实是android提供的一个壳,供我们去学习如何以比较快的速度去完成一个app，但是本着知其然，知其所以然的心态，Activity的启动方式是值得研究的.
 2. Activity的启动过程中，我们可以看出activity与application是如何交互的，在哪些位置交互的.
 
+## 简析Activity启动过程
+
+![Alt text]( /images/android/androidL_1.png "Optional title")
+
+
 
 
 ###  在Launch点击了图片开始:
 在Android系统中，应用程序是由Launcher启动起来的，其实，Launcher本身也是一个应用程序，其它的应用程序安装后，就会Launcher的界面上出现一个相应的图标，点击这个图标时，Launcher就会对应的应用程序启动起来。
  Launcher的源代码工程在packages/apps/Launcher2目录下，负责启动其它应用程序的源代码实现在src/com/android/launcher2/Launcher.java文件中
 
-	{% highlight java linenos %} 
+```java 
 /**
 * Default launcher application.
 */
@@ -62,7 +67,7 @@ public final class Launcher extends Activity
 	......
 
 }
-	{% endhighlight %}
+```
 一般的activity的AndroidManifest.xml为：
 
 	{% highlight java linenos %} 
@@ -1632,10 +1637,6 @@ Application app = r.packageInfo.makeApplication(false, mInstrumentation);
 mInstrumentation.callActivityOnCreate(activity, r.state);
 {% endhighlight %}
 
-![Alt text]( /images/android/androidL_1.png "Optional title")
-
-
-	{% highlight java linenos %} {% endhighlight %}
 
 
 
