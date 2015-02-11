@@ -4,7 +4,7 @@
    <title>Yangming.com</title>
    <link href="http://yangm90.github.io/Blog//atom.xml" rel="self" type="application/atom+xml"/>
    <link href="http://yangm90.github.io/Blog/" rel="alternate" type="text/html" />
-   <updated>2015-02-04T16:39:17+08:00</updated>
+   <updated>2015-02-06T15:55:53+08:00</updated>
    <id>http://yangm90.github.io/Blog/</id>
    <author>
      <name></name>
@@ -96,7 +96,9 @@
 
 &lt;h2&gt;简析Activity启动过程&lt;/h2&gt;
 
-&lt;p&gt;&lt;img src=&quot;/images/android/androidL_1.png&quot; title=&quot;Optional title&quot; alt=&quot;Alt text&quot; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;/images/android/android_activity_startservice.jpeg&quot; title=&quot;Optional title&quot; alt=&quot;Alt text&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;上面这个图显示的一个外部调用ActivityManagerService去生成一个全新的Activity(包括生成这个Activity所在的application).这个图还包括了如何生成一个新的service。&lt;/p&gt;
 
 &lt;h3&gt;在Launch点击了图片开始:&lt;/h3&gt;
 

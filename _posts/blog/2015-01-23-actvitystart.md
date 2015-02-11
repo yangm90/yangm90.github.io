@@ -13,8 +13,10 @@ category: blog
 
 ## 简析Activity启动过程
 
-![Alt text]( /images/android/androidL_1.png "Optional title")
+![Alt text]( /images/android/android_activity_startservice.jpeg "Optional title")
 
+
+上面这个图显示的一个外部调用ActivityManagerService去生成一个全新的Activity(包括生成这个Activity所在的application).这个图还包括了如何生成一个新的service。
 
 
 
