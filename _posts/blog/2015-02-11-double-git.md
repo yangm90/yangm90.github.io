@@ -71,15 +71,5 @@ $ git config --global user.email "jexchan@gmail.com"
 
 然后就可以正常使用了.
 
-![Alt text]( /images/android/androidL_1.png "Optional title")
 
-
-
-	{% highlight shell linenos %} {% endhighlight %}
-
-
-
-### 遇到的问题
-1. 我从windows下考过来一个key,执行ssh-add 会报权限问题，导致添加不进去。解决方案将文件权限改为chmod 700.
-2. 如果按以上步骤还有什么问题的话，最可能是因为config文件配置不正确导致的！可以多google一下关于github ssh config相关的教程！
 [yangming]:  
