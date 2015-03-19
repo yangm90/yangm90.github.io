@@ -33,7 +33,7 @@ if __name__ == '__main__':
 	os.system(gitAdd);
 	gitCommit = "";
 	if len(sys.argv) > 1:
-		gitCommit = "git commit -m \"" + sys.argv[0] + "\" ";
+		gitCommit = "git commit -m \"" + sys.argv[1] + "\" ";
 	else:
 		gitCommit = "git commit -m \" defalut \" ";
 	printCompat("gitcommit: " + gitCommit);

@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <!--
+    * Author:        ym 
+    -->
+    <meta charset="utf-8" />
+    <title>基本知识 | Yangming.com</title>
+    <meta name="author" content="ym" />
+    <meta name="renderer" content="webkit">
+    <meta name="description" content="ym's Blog" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0">
+    <link rel="stylesheet" href="/css/default.css" type="text/css" />
+    <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon" />
+    <link rel="alternate" type="application/atom+xml" title="Recent Entries" href="/atom.xml" />
+    <script src="/js/jquery-1.7.1.min.js" type="text/javascript"></script>
+</head>
+<body>
+
+    <div class="home-menu">
+        <div class="home-icon-con">
+            <a class="home-menu-icon" href="/">YangMing</a>
+            <a class="home-follow" href="#" title="Contact Me">+</a>
+        </div>
+		<!--
+        <div class="home-contact">
+            <a href="http://weibo.com/beiyuu/" target="_blank" style="margin-left:-5px;"><img src="http://www.weibo.com/favicon.ico" alt="" width="25"/></a>
+            <a href="http://www.douban.com/people/beiyuu/" target="_blank" style="text-align:center;"><img src="http://www.douban.com/favicon.ico" alt="" width="22"/></a>
+            <a href="http://instagram.com/beiyuu/" target="_blank" style="text-align:right"><img src="http://d36xtkk24g8jdx.cloudfront.net/bluebar/00c6602/images/ico/favicon.ico" alt="" width="22"/></a>
+        </div>
+		-->
+    </div>
+
+    <link rel="stylesheet" href="/js/prettify/prettify.css" />
+<style type="text/css">
+    body { background:#e8e8e8; }
+    @media screen and (max-width: 750px){
+        body { background:#fff; }
+    }
+    @media screen and (max-width: 1020px){
+        body { background:#fff; }
+    }
+</style>
+
+<div id="content">
+    <div class="entry">
+        <h1 class="entry-title"><a href="/mianshi" title="基本知识">基本知识</a></h1>
+        <p class="entry-date">2015-03-15</p>
+        <p>所有代码研究基于android4.2.2_R1</p>
+
+<h2>关于instance单例的一些问题</h2>
+
+<div class="highlight"><pre><code class="language-java" data-lang="java">import java.util.ArrayList;
+import java.util.List;
+
+public class Hello {
+        public List&lt;String&gt; mXs = new ArrayList&lt;String&gt;();
+        public List&lt;String&gt; mYs = new ArrayList&lt;String&gt;();
+        public List&lt;String&gt; mZs = new ArrayList&lt;String&gt;();
+
+        static Hello sInstance = null;
+        
+        public static Hello getInstance() {
+                sInstance = new Hello();
+                return sInstance;
+        }
+        
+        public String getX(int i) {
+                synchronized (Hello.class) {
+                        return mXs.get(i);
+                }
+        }
+        
+        public void addX(String s) {
+                synchronized (Hello.class) {
+                        mXs.add(s);
+                }
+        }
+        
+        public String getY(int i) {
+                synchronized (Hello.class) {
+                        return mYs.get(i);
+                }
+        }
+        
+        public void addY(String s) {
+                synchronized (Hello.class) {
+                        mYs.add(s);
+                }
+        }
+
+        public void addZ(String s) {
+                synchronized (this) {
+                        mZs.add(s);
+                }
+        }
+
+        public String getZ(int i) {
+                synchronized (this) {
+                        return mZs.get(i);
+                }
+        }
+        
+
+        
+        public synchronized int removeAllFromX(String x) {
+                int i = 0;
+                for(String s : mXs) {
+                        if(s.equals(x)) {
+                                mXs.remove(s);
+                                ++i;
+                        }
+                }
+                return i;
+        }
+}</code></pre></div>
+
+
+<p>这段代码存在的问题：</p>
+
+<ol>
+<li>单例非线程安全，可能会出现多个实例</li>
+<li>mXs多线程操作会出问题(Race Condition)
+
+<ul>
+<li>原因: addX 使用的是受Hello类的静态锁保护的临界区 / removeAllFromX 使用的是对象实例的内置锁保护的临界区，因此多线程可以同时读写mXs，产生RaceCondition</li>
+<li>解决方法：</li>
+</ul>
+</li>
+</ol>
+
+
+<div class="highlight"><pre><code class="language-java" data-lang="java">public String getX(int i) {
+        synchronized (this) {
+            return mXs.get(i);
+        }
+    }
+    
+    public void addX(String x) {
+        synchronized (this) {
+            mXs.add(x);
+        }
+    }</code></pre></div>
+
+
+<ol>
+<li>并发性能差</li>
+<li>原因: mXs/mYs/mZs的读写操作存在共用同一把锁的问题， 会导致不必要的block. 比如操作mXs时，会block操作mY(取 决于怎么修改问题2)</li>
+<li>解决方法， mXs/mYs/mZs 各用各的锁</li>
+</ol>
+
+
+<div class="highlight"><pre><code class="language-java" data-lang="java">比如:
+  Object lockX = new Object(); // -&gt; 保护mXs
+  Object lockY = new Object(); // -&gt; 保护mYs
+  Object lockZ = new Object(); // -&gt; 保护mZs</code></pre></div>
+
+
+<ol>
+<li>removeAllFromX遍历删除有问题：
+
+<ul>
+<li> 解决方法: 使用Iterator或者遍历时标记， 遍历完毕后再统一删除</li>
+</ul>
+</li>
+</ol>
+
+
+<h2>高效的代码样例</h2>
+
+<div class="highlight"><pre><code class="language-java" data-lang="java">public class Demo {  
+    
+    public static void main(String[] args){
+        
+        //1:考察Integer的cache,避免coding的时候产生更多的对象
+        //-128~127有缓存对象的
+        Integer i1 = Integer.valueOf(1);
+        Integer i2 = Integer.valueOf(1);
+        System.out.println(i1==i2);//true
+        
+        Integer i3 = Integer.valueOf(1000);
+        Integer i4 = Integer.valueOf(1000);
+        System.out.println(i3 == i4);//false
+        
+        //2:考察Java中的常量池概念，避免coding的时候产生更多的对象
+        String s1 = &quot;aa&quot;;
+        String s2 = new String(&quot;aa&quot;);
+        String s3 = String.valueOf(&quot;aa&quot;);
+        
+        System.out.println(s1 == s2);//false
+        System.out.println(s1 == s3);//true
+        System.out.println(s2 == s3);//false
+        //调用s2的什么方法，可以让s2和s1,s3相等，这个方法的作用是什么？
+        //intern方法，这个方法就是返回常量池中值为:&quot;aa&quot;的对象
+        
+        //3:考察对ArrayList的源码解析程度，coding的时候提高程序的的效率，ArrayList默认的容量是10，如果超过10的话，会自动扩容。
+        //已知list的大小为10,list1和list2的定义哪种方式比较好：效果一样的
+        //已知list的大小为20,list1和list3的定义哪种方式比较好：list3方式好
+        ArrayList&lt;String&gt; list1 = new ArrayList&lt;String&gt;();
+        ArrayList&lt;String&gt; list2 = new ArrayList&lt;String&gt;(10);
+        ArrayList&lt;String&gt; list3 = new ArrayList&lt;String&gt;(20);
+        
+    }
+
+}</code></pre></div>
+
+
+<h2>值传递与引用传递</h2>
+
+<div class="highlight"><pre><code class="language-java" data-lang="java">public class Test {
+        public static void main(String[] args) {
+                String str = new String(&quot;good&quot;);
+                char[] ch = {&#39;a&#39;, &#39;b&#39;, &#39;c&#39;};
+                
+                Test t = new Test();
+                t.change(str, ch);
+                System.out.print(str + &quot; &quot;);
+                System.out.print(ch);
+                
+        }
+        
+        public void change(String str, char[] ch) {
+                str = &quot;welcome&quot;;
+                ch[0] = &#39;g&#39;;
+        }
+}</code></pre></div>
+
+
+<p>打印结果为：good gbc</p>
+
+<h2>View的常见动画</h2>
+
+<p>实现继承View的控件，在加载到布局后，得到长宽时画一个扇形在2秒内从0度到360度匀速动画。长宽为100dp。</p>
+
+<div class="highlight"><pre><code class="language-java" data-lang="java">public class SectorView extends View{
+        
+        private float mHeight = 0;
+        private float mWidth = 0;
+        private Paint mPaint;
+        private RectF mRectf;
+        private float mSweep = 0;
+        
+        public SectorView(Context context, AttributeSet attrs) {
+            super(context, attrs);
+            init();
+            getViewTreeObserver().addOnGlobalLayoutListener(new OnGlobalLayoutListener() {
+                        
+                        @Override
+                        public void onGlobalLayout() {
+                                int height = getHeight();
+                                if(height != 0){
+                                        mHeight = height;
+                                        mWidth = getWidth();
+                                        mRectf = new RectF(0, 0, mWidth, mHeight);
+                                        getViewTreeObserver().removeGlobalOnLayoutListener(this);
+                                        startAnim();
+                                }
+                        }
+
+                });
+    }
+        
+        private void startAnim() {
+                ValueAnimator anim = ValueAnimator.ofFloat(0,360);
+                anim.setDuration(2000);
+                anim.setInterpolator(new LinearInterpolator());
+                anim.addUpdateListener(new AnimatorUpdateListener() {
+                        
+                        @Override
+                        public void onAnimationUpdate(ValueAnimator animation) {
+                                float sweep = (Float)animation.getAnimatedValue();
+                                mSweep = sweep;
+                                invalidate();
+                        }
+                });
+                anim.start();
+    }
+
+        private void init() {
+                mPaint = new Paint();
+                mPaint.setAntiAlias(true);
+                mPaint.setColor(0xFF0000FF);
+    }
+        
+        @Override
+        protected void onDraw(Canvas canvas) {
+            super.onDraw(canvas);
+            
+            if(mHeight &gt; 0){
+                canvas.save();
+                canvas.rotate(-90, mWidth/2, mHeight/2);
+                canvas.drawArc(mRectf, 0, mSweep, true, mPaint);
+                canvas.restore();
+            }
+        }
+
+
+}</code></pre></div>
+
+
+<h2>常见内存问题</h2>
+
+<ol>
+<li>构建Adapter适配器时 convertview不重用</li>
+<li>游标 不及时关闭</li>
+<li>I/O流不及时关闭</li>
+<li>bitmap确认不在用时不及时recycle</li>
+<li>大的对象比如activity不被回收</li>
+</ol>
+
+
+<h2>SharedPreference的问题：</h2>
+
+<p>Editor 的apply和commit方法异同</p>
+
+<ol>
+<li>apply没有返回值而commit返回boolean表明修改是否提交成功</li>
+<li>apply是将修改数据原子提交到内存, 而后异步真正提交到硬件磁盘, 而commit是同步的提交到硬件磁盘，因此，在多个并发的提交commit的时候，他们会等待正在处理的commit保存到磁盘后在操作，从而降低了效率。而apply只是原子的提交到内容，后面有调用apply的函数的将会直接覆盖前面的内存数据，这样从一定程度上提高了很多效率。</li>
+<li>apply方法不会提示任何失败的提示。 由于在一个进程中，sharedPreference是单实例，一般不会出现并发冲突，如果对提交的结果不关心的话，建议使用apply，当然需要确保提交成功且有后续操作的话，还是需要用commit的。</li>
+</ol>
+
+
+<h2>关于webview：</h2>
+
+<p>How to resize a android webview after adding data in it：</p>
+
+<div class="highlight"><pre><code class="language-java" data-lang="java">private void setupWebView() {
+    webView.getSettings().setJavaScriptEnabled(true);
+    webView.setWebViewClient(new WebViewClient() {
+        @Override
+        public void onPageFinished(WebView view, String url) {
+            webView.loadUrl(&quot;javascript:MyApp.resize(document.body.getBoundingClientRect().height)&quot;);
+            super.onPageFinished(view, url);
+        }
+    });
+    webView.addJavascriptInterface(this, &quot;MyApp&quot;);
+}
+@JavascriptInterface
+public void resize(final float height) {
+    MyActivity.this.runOnUiThread(new Runnable() {
+        @Override
+        public void run() {
+            webView.setLayoutParams(new LinearLayout.LayoutParams(getResources().getDisplayMetrics().widthPixels, (int) (height * getResources().getDisplayMetrics().density)));
+        }
+    });
+}</code></pre></div>
+
+
+<h2>参考</h2>
+
+<p><a href="http://evendanan.net/2013/02/Android-Memory-Leaks-OR-Different-Ways-to-Leak/">AndRoid-Memory-leaks-OR-Different-Ways-to-Leak</a></p>
+
+
+        <div id="disqus_container">
+			<!-- UY BEGIN -->
+			<div class="disscus-title"> 评论: </div>
+			<div id="uyan_frame"></div>
+			<script type="text/javascript" src="http://v2.uyan.cc/code/uyan.js?uid=2015590"></script>
+			<!-- UY END -->
+            <!-- <div style="margin-bottom:20px" class="right">
+                <script type="text/javascript" charset="utf-8">
+                (function(){
+                  var _w = 86 , _h = 16;
+                  var param = {
+                    url:location.href,
+                    type:'6',
+                    count:'', /**是否显示分享数，1显示(可选)*/
+                    appkey:'', /**您申请的应用appkey,显示分享来源(可选)*/
+                    title:'', /**分享的文字内容(可选，默认为所在页面的title)*/
+                    pic:'', /**分享图片的路径(可选)*/
+                    ralateUid:'1855270953', /**关联用户的UID，分享微博会@该用户(可选)*/
+                    language:'zh_cn', /**设置语言，zh_cn|zh_tw(可选)*/
+                    rnd:new Date().valueOf()
+                  }
+                  var temp = [];
+                  for( var p in param ){
+                    temp.push(p + '=' + encodeURIComponent( param[p] || '' ) )
+                  }
+                  document.write('<iframe allowTransparency="true" frameborder="0" scrolling="no" src="http://hits.sinajs.cn/A1/weiboshare.html?' + temp.join('&') + '" width="'+ _w+'" height="'+_h+'"></iframe>')
+                })()
+                </script>
+            </div>
+			<a href="#" class="comment" onclick="return false;">点击查看评论</a>
+            <div id="disqus_thread"></div>
+			-->
+
+        </div>
+    </div>
+
+    <!--<div class="sidenav">
+        <iframe width="100%" height="75" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=75&fansRow=2&ptype=1&speed=0&skin=5&isTitle=0&noborder=0&isWeibo=0&isFans=0&uid=1855270953&verifier=375b89d6&dpc=1"></iframe>
+    </div> -->
+
+	<!-- JiaThis Button BEGIN -->
+<div class="sidenav">
+<div class="jiathis_style_24x24"  >
+	<a class="jiathis_button_qzone"></a>
+	<a class="jiathis_button_tsina"></a>
+	<a class="jiathis_button_tqq"></a>
+	<a class="jiathis_button_weixin"></a>
+	<a class="jiathis_button_renren"></a>
+	<a href="http://www.jiathis.com/share" class="jiathis jiathis_txt jtico jtico_jiathis" target="_blank"></a>
+	<a class="jiathis_counter_style"></a>
+</div>
+</div>
+<script type="text/javascript" src="http://v3.jiathis.com/code/jia.js" charset="utf-8"></script>
+<!-- JiaThis Button END -->
+
+
+
+   <div class="sidenav">
+
+        <h2>Blog</h2>
+        <ul class="artical-list">
+        
+            <li><a href="/mianshi">基本知识</a></li>
+        
+            <li><a href="/float_popupwindow">Activity 上的悬浮窗</a></li>
+        
+            <li><a href="/double-git">git多个SSh Key</a></li>
+        
+            <li><a href="/ant">android编译原理</a></li>
+        
+            <li><a href="/actvitystart">学习Activity启动过程分析</a></li>
+        
+            <li><a href="/AndroidTouch1">关于android的Activity是如何触摸事件框架简析(二)</a></li>
+        
+            <li><a href="/AndroidTouch">关于android的Activity是如何触摸事件框架简析(一)</a></li>
+        
+            <li><a href="/AndroidCanvas">Android图形的知识</a></li>
+        
+            <li><a href="/android-Alpha">android中如何高效的使用alpha属性</a></li>
+        
+            <li><a href="/view">android的View绘制</a></li>
+        
+            <li><a href="/ndk">android的NDK调试常见问题</a></li>
+        
+            <li><a href="/git-svn">git和SVN配合</a></li>
+        
+            <li><a href="/java-String">关于java String的匹配问题</a></li>
+        
+            <li><a href="/android-diandi">android的基础控件</a></li>
+        
+            <li><a href="/android_L">androidL预言</a></li>
+        
+            <li><a href="/first-commit">github 和jekyll方法</a></li>
+        
+            <li><a href="/vps-config-python-vitrualenv-flask-gunicorn-supervisor-nginx">VPS环境搭建详解 (Virtualenv+Gunicorn+Supervisor+Nginx)</a></li>
+        
+            <li><a href="/css3-animation">CSS3动画详解</a></li>
+        
+        </ul>
+
+        <h2>Opinion</h2>
+        <ul class="artical-list">
+        
+            <li><a href="/github">github的Blog</a></li>
+        
+            <li><a href="/ymResume">简历</a></li>
+        
+        </ul>
+
+        <h2>Project</h2>
+        <ul class="artical-list">
+        
+        </ul>
+    </div>
+</div>
+
+<script src="/js/post.js" type="text/javascript"></script>
+
+
+    <!--*********************************************************-->
+    <!--****** 宝贝儿，看见这个时候，删掉下面的统计代码哦~ ******-->
+    <!--************* 再推荐下我的第一篇博客哦~~ ****************-->
+    <!--*********************************************************-->
+
+    <div class="hide">
+	<script type="text/javascript" src="http://js.tongji.linezing.com/3579907/tongji.js"></script><noscript><a href="http://www.linezing.com"><img src="http://img.tongji.linezing.com/3579907/tongji.gif"/></a></noscript>       
+    </div>
+    <script type="text/javascript">
+        $(function(){
+            $('.home-follow').click(function(e){
+                e.preventDefault();
+
+                if($('.home-contact').is(':visible')){
+                    $('.home-contact').slideUp(100);
+                }else{
+                    $('.home-contact').slideDown(100);
+                }
+            });
+        })
+    </script>
+</body>
+</html>

@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <!--
+    * Author:        ym 
+    -->
+    <meta charset="utf-8" />
+    <title>android编译原理 | Yangming.com</title>
+    <meta name="author" content="ym" />
+    <meta name="renderer" content="webkit">
+    <meta name="description" content="ym's Blog" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0">
+    <link rel="stylesheet" href="/css/default.css" type="text/css" />
+    <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon" />
+    <link rel="alternate" type="application/atom+xml" title="Recent Entries" href="/atom.xml" />
+    <script src="/js/jquery-1.7.1.min.js" type="text/javascript"></script>
+</head>
+<body>
+
+    <div class="home-menu">
+        <div class="home-icon-con">
+            <a class="home-menu-icon" href="/">YangMing</a>
+            <a class="home-follow" href="#" title="Contact Me">+</a>
+        </div>
+		<!--
+        <div class="home-contact">
+            <a href="http://weibo.com/beiyuu/" target="_blank" style="margin-left:-5px;"><img src="http://www.weibo.com/favicon.ico" alt="" width="25"/></a>
+            <a href="http://www.douban.com/people/beiyuu/" target="_blank" style="text-align:center;"><img src="http://www.douban.com/favicon.ico" alt="" width="22"/></a>
+            <a href="http://instagram.com/beiyuu/" target="_blank" style="text-align:right"><img src="http://d36xtkk24g8jdx.cloudfront.net/bluebar/00c6602/images/ico/favicon.ico" alt="" width="22"/></a>
+        </div>
+		-->
+    </div>
+
+    <link rel="stylesheet" href="/js/prettify/prettify.css" />
+<style type="text/css">
+    body { background:#e8e8e8; }
+    @media screen and (max-width: 750px){
+        body { background:#fff; }
+    }
+    @media screen and (max-width: 1020px){
+        body { background:#fff; }
+    }
+</style>
+
+<div id="content">
+    <div class="entry">
+        <h1 class="entry-title"><a href="/ant" title="android编译原理">android编译原理</a></h1>
+        <p class="entry-date">2015-02-06</p>
+        <p>所有代码研究基于android4.2.2_R1</p>
+
+<p>最近新的项目由我来些android的打包脚本所以特此研究了下android打包的过程。</p>
+
+<h2>android build process</h2>
+
+<p><img src="/images/android/build.png" title="android build system" alt="Alt text" /></p>
+
+<p>基于的tools都再{androidsdk}/tool/ 和 {androidsdk}/platforms/android目录下面
+打包过程简析(我只是官网的搬运工)
+- 使用Android Asset Packaging Tool(aapt) ，将AndroidManifest.xml和res下的资源编译生成R.java文件，这样java文件就可以去引用资源了
+- 使用aidl 工具去生成对应的Java interfaces
+- 将src和通过aapt生成的R.java，.aidl文件通过javaC命令去生成.class 文件
+- 使用dex tool 将class文件转化成Dalvik byte code.这时候要将所有class文件和第三方的jar包都包括。
+- 所有没有编译过得图片和编译过的图片,.dex文件传给apkbuilder去打包成.apk
+- 最后采用zipalign tool 打入签名</p>
+
+<p>这个就是一次打包要走的完整流程,打包脚本目前分ant和gradle一个是ant配合eclipse另一个是android studio 配合gradle。先说说ant打包</p>
+
+<h3>ant脚本</h3>
+
+<h4>生成项目的build.xml</h4>
+
+<p>Eclipse中使用Ant为Android打包并且签名。
+SDK自带文件 在<sdk>tools/ant目录下这3个文件。
+- build.xml
+- NOTICE
+- uibuild.xml
+这里头定义了大量基础构建方法和打包策略,我们只需要建立自己的build.xml并存放在项目的根目录,然后引用下这个build.xml。</p>
+
+<p>我们可以使用sdk自带的android.bat去为项目生成对应的build.xml</p>
+
+<p>通过执行如下命令即可在指定的项目目录下生成build.xml文件。
+<sdk>/tools/android update project -p <project> -t <target></p>
+
+<p>其中：
+sdk为sdk的安装目录，其下的tools/android是我们要使用的命令。
+project为项目目录。
+target为项目所使用的android的target id，也就是项目对应的android的版本。
+可以通过执行以下命令查看当前sdk中所包含的target以及相应id：
+android list targets。</p>
+
+<h4>使用ant打android 的jar包</h4>
+
+<div class="highlight"><pre><code class="language-java" data-lang="java">&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;
+&lt;!--project 用于定义一个ant工程，其中的三项name、default、basedir缺一不可。
+作用分别为：定义工程名、制定默认执行的任务、以及工程基础的路径型(它是计算其它路径的基础，一般情况下使用.即在java工程根目录即可)--&gt;
+&lt;project name=&quot;sayhellousejarant&quot; default=&quot;compile&quot; basedir=&quot;.&quot;&gt;
+    &lt;!--描述，个人觉得就是一提示作用，没什么实际用途--&gt;
+    &lt;description&gt;use jar test&lt;/description&gt;
+    &lt;!--定义源文件路径，其中的value换成location也行，使用value的时候，${src}得到的就是src这个值，如果使用location，得到的是src这个目录的绝对路径--&gt;
+    &lt;property name=&quot;src&quot; value=&quot;src&quot; /&gt;
+    &lt;property name=&quot;classes&quot; value=&quot;bin/classes&quot; /&gt;
+
+    &lt;!--构造打包时Class-Path需要的路径 --&gt;
+    &lt;!--pathconvert用于对目录进行组合 property即这个组合的名字，pathsep作用是各个文件之间的分隔符，
+        如果不写，在windows平台默认是分号。但时在MANIFEST.MF这个文件中，各个jar包之间要用空格区分，
+        因此。这里就写成空格了
+    --&gt;
+    &lt;pathconvert property=&quot;lib&quot; pathsep=&quot; &quot;&gt;
+        &lt;!--mapper,对路径组合方式进行控制--&gt;
+        &lt;mapper&gt;
+            &lt;!--chainedmapper 作用是联合多个mapper--&gt;
+            &lt;chainedmapper&gt;
+                &lt;!--过滤文件，将路径去掉，只保留文件名--&gt;
+                &lt;flattenmapper /&gt;
+                &lt;!--过滤+转换器，将所有的文件名前面都加上一个lib，我们知道lib目录下面有jar包，
+                    lib/*的作用其实是将jar包名与路径进行组合形成如：lib/google.jar这样的相对路径
+                 --&gt;
+                &lt;globmapper from=&quot;*&quot; to=&quot;lib/*&quot; /&gt;
+            &lt;/chainedmapper&gt;
+        &lt;/mapper&gt;
+        &lt;!--按照mapper定义的格式组合lib目录下面的所有jar文件，形成诸如lib/jar1.jar lib/jar2.jar的字符串--&gt;
+        &lt;fileset dir=&quot;lib&quot;&gt;
+            &lt;include name=&quot;*.jar&quot; /&gt;
+        &lt;/fileset&gt;
+    &lt;/pathconvert&gt;
+
+
+    &lt;!--同lib，此处不再解释--&gt;
+    &lt;pathconvert property=&quot;lib2&quot; pathsep=&quot; &quot;&gt;
+        &lt;mapper&gt;
+            &lt;chainedmapper&gt;
+                &lt;flattenmapper /&gt;
+                &lt;globmapper from=&quot;*&quot; to=&quot;lib2/*&quot; /&gt;
+            &lt;/chainedmapper&gt;
+        &lt;/mapper&gt;
+        &lt;fileset dir=&quot;lib2&quot;&gt;
+            &lt;include name=&quot;*.jar&quot; /&gt;
+        &lt;/fileset&gt;
+    &lt;/pathconvert&gt;
+
+    &lt;!--单独一个jar包，不在lib以及lib2目录下，使用一个单独的property定义，以便引用--&gt;
+    &lt;property name=&quot;androidjar&quot; value=&quot;android-201111262247.jar&quot; /&gt;
+    &lt;!--组合各个路径，构成MANIFEST.MF文件中Class-Path所需的字符串--&gt;
+    &lt;property name=&quot;libs&quot; value=&quot;${lib} ${lib2} ${androidjar}&quot; /&gt;
+
+    &lt;!--打印一下刚才构造好的字符串，看看是否符合要求--&gt;
+    &lt;echo&gt;libs   ${libs}&lt;/echo&gt;
+
+    &lt;!-- 构造打包时Class-Path需要的路径 结束--&gt;
+
+    &lt;!--创建任务init，负责初始化一些条件--&gt;
+    &lt;target name=&quot;init&quot;&gt;
+        &lt;!-- 创建存放编译后的class的目录
+            mkdir可以创建多级目录 
+        --&gt;
+        &lt;mkdir dir=&quot;${classes}&quot; /&gt;
+    &lt;/target&gt;
+
+    &lt;!--创建编译任务，名字是compile,depends指定了comiple任务依赖init任务--&gt;
+    &lt;target name=&quot;compile&quot; depends=&quot;init&quot; description=&quot;comile target&quot;&gt;
+        &lt;!--javac，编译，对应java中的javac命令。
+        其中srcdir定义源文件路径 destdir定义编译后文件路径，
+        includeantruntime作用是指定编译任务是否包含ant的classpath,可有可无，不影响编译，
+        但不写可能会出现警告，为了眼不见心不烦，加上吧--&gt;
+        &lt;javac srcdir=&quot;${src}&quot; destdir=&quot;${classes}&quot; includeantruntime=&quot;true&quot;&gt;
+            &lt;!-- classpath 定义编译需要的claspath --&gt;
+            &lt;classpath&gt;
+                &lt;fileset dir=&quot;lib&quot;&gt;
+                    &lt;include name=&quot;*.jar&quot; /&gt;
+                &lt;/fileset&gt;
+                &lt;fileset dir=&quot;lib2&quot;&gt;
+                    &lt;include name=&quot;*.jar&quot; /&gt;
+                &lt;/fileset&gt;
+                &lt;fileset dir=&quot;.&quot;&gt;
+                    &lt;include name=&quot;${androidjar}&quot; /&gt;
+                &lt;/fileset&gt;
+            &lt;/classpath&gt;
+        &lt;/javac&gt;
+    &lt;/target&gt;
+
+
+    &lt;!-- 创建时间戳 --&gt;
+    &lt;tstamp /&gt;
+
+    &lt;!--定义jarfilename，准备进行打包操作。其中ant.project.name是ant默认的一个变量，值为最上面定义的project的name
+    ${DSTAMP}为日期，格式为20111123；${TSTAMP}为时间，格式为2256，表示22点56分。
+        --&gt;
+    &lt;property name=&quot;jarfilename&quot; value=&quot;${ant.project.name}-${DSTAMP}${TSTAMP}.jar&quot; /&gt;
+    &lt;!--打包开始，名字为jar，依赖任务为compile--&gt;
+    &lt;target name=&quot;jar&quot; depends=&quot;compile&quot; description=&quot;make jar file&quot;&gt;
+        &lt;!--jar操作，jarfile指定jar包存放路径，basedir为编译后的class的目录--&gt;
+        &lt;jar jarfile=&quot;${jarfilename}&quot; basedir=&quot;${classes}&quot;&gt;
+            &lt;!--为jar包指定manifest，当然，如果jar包不需要打成runnable的形式，manifest可以不要--&gt;
+            &lt;manifest&gt;
+                &lt;!--指定main-class--&gt;
+                &lt;attribute name=&quot;Main-Class&quot; value=&quot;demo.SayHello&quot; /&gt;
+                &lt;!--指定Class-Path--&gt;
+                &lt;attribute name=&quot;Class-Path&quot; value=&quot;${libs}&quot;&gt;
+                &lt;/attribute&gt;
+            &lt;/manifest&gt;
+        &lt;/jar&gt;
+    &lt;/target&gt;
+
+    &lt;!--运行一下jar包，试试看效果--&gt;
+    &lt;target name=&quot;run&quot; depends=&quot;jar&quot;&gt;
+        &lt;!--其实这里就是运行jar命令，注意fork一定加上，不然不起作用--&gt;
+        &lt;java jar=&quot;${jarfilename}&quot; fork=&quot;true&quot;&gt;
+        &lt;/java&gt;
+    &lt;/target&gt;
+
+
+    &lt;!-- 清理 --&gt;
+    &lt;target name=&quot;clean&quot;&gt;
+        &lt;!-- 可以以递归的方式删除目录 --&gt;
+        &lt;delete dir=&quot;${classes}&quot; /&gt;
+        &lt;delete dir=&quot;.&quot; includes=&quot;${ant.project.name}*.jar&quot; /&gt;
+    &lt;/target&gt;
+&lt;/project&gt;</code></pre></div>
+
+
+<p>这个是网上的一个实例代码。其实打jar包主要会用导两个命令，一个是javac去生成class，一个是用jar命令去生成jar包.</p>
+
+<h3>gradle脚本 (待续)</h3>
+
+
+        <div id="disqus_container">
+			<!-- UY BEGIN -->
+			<div class="disscus-title"> 评论: </div>
+			<div id="uyan_frame"></div>
+			<script type="text/javascript" src="http://v2.uyan.cc/code/uyan.js?uid=2015590"></script>
+			<!-- UY END -->
+            <!-- <div style="margin-bottom:20px" class="right">
+                <script type="text/javascript" charset="utf-8">
+                (function(){
+                  var _w = 86 , _h = 16;
+                  var param = {
+                    url:location.href,
+                    type:'6',
+                    count:'', /**是否显示分享数，1显示(可选)*/
+                    appkey:'', /**您申请的应用appkey,显示分享来源(可选)*/
+                    title:'', /**分享的文字内容(可选，默认为所在页面的title)*/
+                    pic:'', /**分享图片的路径(可选)*/
+                    ralateUid:'1855270953', /**关联用户的UID，分享微博会@该用户(可选)*/
+                    language:'zh_cn', /**设置语言，zh_cn|zh_tw(可选)*/
+                    rnd:new Date().valueOf()
+                  }
+                  var temp = [];
+                  for( var p in param ){
+                    temp.push(p + '=' + encodeURIComponent( param[p] || '' ) )
+                  }
+                  document.write('<iframe allowTransparency="true" frameborder="0" scrolling="no" src="http://hits.sinajs.cn/A1/weiboshare.html?' + temp.join('&') + '" width="'+ _w+'" height="'+_h+'"></iframe>')
+                })()
+                </script>
+            </div>
+			<a href="#" class="comment" onclick="return false;">点击查看评论</a>
+            <div id="disqus_thread"></div>
+			-->
+
+        </div>
+    </div>
+
+    <!--<div class="sidenav">
+        <iframe width="100%" height="75" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=75&fansRow=2&ptype=1&speed=0&skin=5&isTitle=0&noborder=0&isWeibo=0&isFans=0&uid=1855270953&verifier=375b89d6&dpc=1"></iframe>
+    </div> -->
+
+	<!-- JiaThis Button BEGIN -->
+<div class="sidenav">
+<div class="jiathis_style_24x24"  >
+	<a class="jiathis_button_qzone"></a>
+	<a class="jiathis_button_tsina"></a>
+	<a class="jiathis_button_tqq"></a>
+	<a class="jiathis_button_weixin"></a>
+	<a class="jiathis_button_renren"></a>
+	<a href="http://www.jiathis.com/share" class="jiathis jiathis_txt jtico jtico_jiathis" target="_blank"></a>
+	<a class="jiathis_counter_style"></a>
+</div>
+</div>
+<script type="text/javascript" src="http://v3.jiathis.com/code/jia.js" charset="utf-8"></script>
+<!-- JiaThis Button END -->
+
+
+
+   <div class="sidenav">
+
+        <h2>Blog</h2>
+        <ul class="artical-list">
+        
+            <li><a href="/mianshi">基本知识</a></li>
+        
+            <li><a href="/float_popupwindow">Activity 上的悬浮窗</a></li>
+        
+            <li><a href="/double-git">git多个SSh Key</a></li>
+        
+            <li><a href="/ant">android编译原理</a></li>
+        
+            <li><a href="/actvitystart">学习Activity启动过程分析</a></li>
+        
+            <li><a href="/AndroidTouch1">关于android的Activity是如何触摸事件框架简析(二)</a></li>
+        
+            <li><a href="/AndroidTouch">关于android的Activity是如何触摸事件框架简析(一)</a></li>
+        
+            <li><a href="/AndroidCanvas">Android图形的知识</a></li>
+        
+            <li><a href="/android-Alpha">android中如何高效的使用alpha属性</a></li>
+        
+            <li><a href="/view">android的View绘制</a></li>
+        
+            <li><a href="/ndk">android的NDK调试常见问题</a></li>
+        
+            <li><a href="/git-svn">git和SVN配合</a></li>
+        
+            <li><a href="/java-String">关于java String的匹配问题</a></li>
+        
+            <li><a href="/android-diandi">android的基础控件</a></li>
+        
+            <li><a href="/android_L">androidL预言</a></li>
+        
+            <li><a href="/first-commit">github 和jekyll方法</a></li>
+        
+            <li><a href="/vps-config-python-vitrualenv-flask-gunicorn-supervisor-nginx">VPS环境搭建详解 (Virtualenv+Gunicorn+Supervisor+Nginx)</a></li>
+        
+            <li><a href="/css3-animation">CSS3动画详解</a></li>
+        
+        </ul>
+
+        <h2>Opinion</h2>
+        <ul class="artical-list">
+        
+            <li><a href="/github">github的Blog</a></li>
+        
+            <li><a href="/ymResume">简历</a></li>
+        
+        </ul>
+
+        <h2>Project</h2>
+        <ul class="artical-list">
+        
+        </ul>
+    </div>
+</div>
+
+<script src="/js/post.js" type="text/javascript"></script>
+
+
+    <!--*********************************************************-->
+    <!--****** 宝贝儿，看见这个时候，删掉下面的统计代码哦~ ******-->
+    <!--************* 再推荐下我的第一篇博客哦~~ ****************-->
+    <!--*********************************************************-->
+
+    <div class="hide">
+	<script type="text/javascript" src="http://js.tongji.linezing.com/3579907/tongji.js"></script><noscript><a href="http://www.linezing.com"><img src="http://img.tongji.linezing.com/3579907/tongji.gif"/></a></noscript>       
+    </div>
+    <script type="text/javascript">
+        $(function(){
+            $('.home-follow').click(function(e){
+                e.preventDefault();
+
+                if($('.home-contact').is(':visible')){
+                    $('.home-contact').slideUp(100);
+                }else{
+                    $('.home-contact').slideDown(100);
+                }
+            });
+        })
+    </script>
+</body>
+</html>

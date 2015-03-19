@@ -5,7 +5,7 @@
     * Author:        ym 
     -->
     <meta charset="utf-8" />
-    <title>简历 | Yangming.com</title>
+    <title>Activity 上的悬浮窗 | Yangming.com</title>
     <meta name="author" content="ym" />
     <meta name="renderer" content="webkit">
     <meta name="description" content="ym's Blog" />
@@ -44,67 +44,62 @@
 
 <div id="content">
     <div class="entry">
-        <h1 class="entry-title"><a href="/ymResume" title="简历">简历</a></h1>
-        <p class="entry-date">2015-01-28</p>
-        <hr />
+        <h1 class="entry-title"><a href="/float_popupwindow" title="Activity 上的悬浮窗">Activity 上的悬浮窗</a></h1>
+        <p class="entry-date">2015-03-10</p>
+        <p>所有代码研究基于android4.2.2_R1</p>
 
-<h1>个人信息</h1>
+<h2>研究原因</h2>
+
+<pre><code>做悬浮窗最常见的方式是采用windowManager这个类来实现,调用这个类的addView方法去添加一个悬浮窗，用updateViewLayout方法用于新悬浮窗的参数,removeView用于移除悬浮窗。但是用这个方法去实现悬浮窗有个问题,需要添加权限&lt;uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" /&gt;。这个是dangerous权限。我们不需要在桌面上显示，只是在程序内部显示，所以不需要这么高的权限，最终选择使用popupWindow.
+</code></pre>
+
+<h3>关于popupwindow去做悬浮窗</h3>
+
+<p>习惯性的用google，搜索了相关资料： <a href="http://stackoverflow.com/questions/9035678/android-how-to-dragmove-popupwindow">Android: How to drag(move) PopupWindow?</a>
+但是发现这个答案其实一点都不完美。实现的效果很渣渣。所以想这篇Blog去讲讲遇到的问题和解决方法。
+主要遇到的问题</p>
 
 <ul>
-<li>杨明/男/1990</li>
-<li>本科/武汉科技大学网络工程系</li>
-<li>工作年限：2年</li>
-<li>技术博客: http://yangm90.github.io</li>
-<li>期望职位：android工程师，android研发</li>
-<li>期望城市：北上广</li>
-<li>期望薪资：税前17k~20K</li>
-<li>QQ：89513196</li>
+<li>mPopup.showAtLocation(cv, Gravity.RIGHT, mCurrentX, mCurrentY)改变Gravity属性会对popupWindow的位置计算有很大影响.</li>
+<li>每次重新拖动的时候会从原点重新计算。</li>
 </ul>
 
 
-<hr />
+<h3>popupWindow移动的核心实现</h3>
 
-<h1>工作经历</h1>
+<p>复写onTouchEvent事件，在移动的过程中不停的用popupWindow.update()方法就可以。</p>
 
-<h2>猎豹移动公司 （ 2012年7月 ~ 至今 ）</h2>
+<pre><code class="java">    @Override
+            public boolean onTouch(View v, MotionEvent event) {
+                int action = event.getAction();
+                switch (action) {
+                case MotionEvent.ACTION_DOWN:
+                    main_lastX = (int) event.getRawX();
+                    main_lastY = (int) event.getRawY();
+                    break;
+                case MotionEvent.ACTION_UP:
+                    main_mScreenX = main_dx;
+                    main_mScreenY = main_dy;
+                    break;
+                case MotionEvent.ACTION_MOVE:
+                    main_dx = (int) event.getRawX() - main_lastX + main_mScreenX;
+                    main_dy =  main_lastY - (int)event.getRawY() + main_mScreenY;
+                    pop_main.update( main_dx,main_dy, -1, -1);
+                    break;
+                }
+                return true;
+            }
+</code></pre>
 
-<h3>cleanMatser的游戏加速 （2013年7月 ~ 至今）</h3>
-
-<ul>
-<li>我参与了研究如何帮助用户顺畅的玩游戏，找出游戏卡顿的原因。通过对android源码分析以及对用户的使用场景分析，找出了对用户有很大作用的点，是游戏盒子功能的留存得到了20%的提升。</li>
-<li>优化游戏盒子的启动框架，将游戏盒子的启动速度提升至竞品中最快（现在目前启动速度为0.7s）。</li>
-</ul>
-
-
-<h3>金山手机助手（2012年7月 ~2013年7月）</h3>
-
-<p>这个项目中，主要参与几方面的事情：</p>
-
-<ul>
-<li>将手机助手的各个模块降低耦合，并实现模块组件化，做到代码的动态加载，为内容的动态发布提供技术支持。</li>
-<li>将手机助手的数据库采用内存级数据库，将数据库读写分离，提升了数据吞吐速度。</li>
-<li>完善并且提高手机助手下载成功率，将手机助手的下载成功率从45%提升至60%。</li>
-<li>熟悉rootService，对root的相关操作熟悉。</li>
-</ul>
-
-
-<h1>技能清单</h1>
-
-<p>以下均为我熟练使用的技能：</p>
+<h3>曾近遇到的问题</h3>
 
 <ul>
-<li>语言：Java/Android</li>
-<li>数据库相关：SQLite</li>
-<li>版本管理、：Svn/Git</li>
-<li>开发工具：android stdio,intellij idea , eclipse</li>
+<li>MotionEvent.getX() 和 getRawX()的区别：
+getX()是触摸后获得相对于自身控件的的X坐标,最大值不会超过自身View的宽度。
+getRawX() 是触摸后获得相对于屏幕位置的X坐标。</li>
+<li>关于popupwindow.update(x,y,width,height,force)这里的X,Y要传的就是屏幕坐标。</li>
 </ul>
 
-
-<hr />
-
-<h1>致谢</h1>
-
-<p>感谢您花时间阅读我的简历，期待能有机会和您共事。</p>
 
 
         <div id="disqus_container">
